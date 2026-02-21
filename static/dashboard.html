@@ -1,0 +1,736 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ServiceBox Cockpit</title>
+    <!-- Chart.js for graphs -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root {
+            --bg-color: #121212;
+            --card-bg: #1e1e1e;
+            --text-primary: #e0e0e0;
+            --text-secondary: #a0a0a0;
+            --accent-color: #bb86fc;
+            --success-color: #03dac6;
+            --error-color: #cf6679;
+            --border-color: #333;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-primary);
+            margin: 0;
+            padding: 20px;
+        }
+
+        /* Header */
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 2rem;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .status-badge {
+            padding: 5px 10px;
+            border-radius: 12px;
+            font-size: 0.85rem;
+            font-weight: bold;
+        }
+
+        .status-online {
+            background-color: rgba(3, 218, 198, 0.2);
+            color: var(--success-color);
+            border: 1px solid var(--success-color);
+        }
+
+        .status-offline {
+            background-color: rgba(207, 102, 121, 0.2);
+            color: var(--error-color);
+            border: 1px solid var(--error-color);
+        }
+
+        /* Grid Layout */
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+
+        /* Cards */
+        .card {
+            background-color: var(--card-bg);
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+        }
+
+        .card h3 {
+            margin-top: 0;
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .kpi-value {
+            font-size: 2.5rem;
+            font-weight: bold;
+            margin: 10px 0;
+        }
+
+        .kpi-sub {
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+        }
+
+        /* Specialized Sections */
+        .controls-section {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        /* Tables */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+        }
+
+        th,
+        td {
+            text-align: left;
+            padding: 12px;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        th {
+            color: var(--text-secondary);
+            font-weight: 600;
+        }
+
+        tr:hover {
+            background-color: rgba(255, 255, 255, 0.05);
+        }
+
+        /* Logs Terminal */
+        .log-terminal {
+            background-color: #000;
+            font-family: 'Consolas', 'Monaco', monospace;
+            padding: 15px;
+            border-radius: 8px;
+            height: 300px;
+            overflow-y: auto;
+            color: #d4d4d4;
+            font-size: 0.85rem;
+            line-height: 1.4;
+            border: 1px solid var(--border-color);
+        }
+
+        .log-entry {
+            margin-bottom: 2px;
+        }
+
+        .log-info {
+            color: #4CAF50;
+        }
+
+        .log-warn {
+            color: #FFC107;
+        }
+
+        .log-error {
+            color: #f44336;
+        }
+
+        /* Buttons */
+        .btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: opacity 0.2s;
+        }
+
+        .btn:hover {
+            opacity: 0.8;
+        }
+
+        .btn-primary {
+            background-color: var(--accent-color);
+            color: #000;
+        }
+
+        .btn-danger {
+            background-color: var(--error-color);
+            color: #000;
+        }
+
+        .btn-small {
+            padding: 4px 8px;
+            font-size: 0.8rem;
+        }
+
+        /* Search Bar */
+        .search-bar {
+            width: 100%;
+            padding: 10px;
+            background: #2d2d2d;
+            border: 1px solid var(--border-color);
+            color: white;
+            border-radius: 4px;
+            margin-bottom: 10px;
+        }
+    </style>
+</head>
+
+<body>
+
+    <header>
+        <div>
+            <h1>ServiceBox Cockpit</h1>
+            <span class="status-badge status-online">SYSTEM ONLINE</span>
+        </div>
+        <div class="controls-section">
+            <button class="btn btn-primary" onclick="refreshAll()">Refresh</button>
+            <button class="btn btn-danger" onclick="apiAction('restart')">Restart</button>
+            <button class="btn btn-danger" onclick="apiAction('shutdown')">Shutdown</button>
+            <button class="btn" style="background:#555; color:white" onclick="logout()">Logout</button>
+        </div>
+    </header>
+
+    <!-- KPI GRID -->
+    <div class="dashboard-grid">
+        <div class="card">
+            <h3>Total Downloads</h3>
+            <div class="kpi-value" id="kpi-total">-</div>
+            <div class="kpi-sub">Lifetime Volume</div>
+        </div>
+        <div class="card">
+            <h3>Success Rate</h3>
+            <div class="kpi-value" id="kpi-success">-%</div>
+            <div class="kpi-sub" id="kpi-success-sub">Calculating...</div>
+        </div>
+        <div class="card">
+            <h3>Last Activity</h3>
+            <div class="kpi-value" style="font-size: 1.2rem; margin-top:25px" id="kpi-last">-</div>
+            <div class="kpi-sub">Server Time</div>
+        </div>
+        <div class="card">
+            <h3>Active Tasks</h3>
+            <div class="kpi-value">0</div>
+            <div class="kpi-sub">Idle</div>
+        </div>
+    </div>
+
+    <!-- MAIN CONTENT GRID -->
+    <div class="dashboard-grid" style="grid-template-columns: 2fr 1fr;">
+
+        <!-- Admin / Queue Management -->
+        <div class="card" style="grid-column: 1 / -1; margin-bottom:0">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px">
+                <h3><span style="color:var(--accent-color)">⚙</span> Queue Management</h3>
+                <div>
+                    <button class="btn btn-small btn-primary" onclick="retryFailedJobs()" style="margin-right:10px">⟳
+                        Retry Failed</button>
+                    <button class="btn btn-small btn-danger" onclick="clearQueue()">🗑 Clear Queue</button>
+                </div>
+            </div>
+            <div style="display:flex; gap:20px; text-align:center">
+                <div style="flex:1; background:#252525; padding:10px; border-radius:4px">
+                    <div style="font-size:0.8em; color:#aaa">Pending</div>
+                    <div id="q-pending" style="font-size:1.5em; font-weight:bold">0</div>
+                </div>
+                <div style="flex:1; background:#252525; padding:10px; border-radius:4px">
+                    <div style="font-size:0.8em; color:#aaa">Processing</div>
+                    <div id="q-processing" style="font-size:1.5em; font-weight:bold; color:var(--accent-color)">0</div>
+                </div>
+                <div style="flex:1; background:#252525; padding:10px; border-radius:4px">
+                    <div style="font-size:0.8em; color:#aaa">Failed</div>
+                    <div id="q-failed" style="font-size:1.5em; font-weight:bold; color:var(--error-color)">0</div>
+                </div>
+                <div style="flex:1; background:#252525; padding:10px; border-radius:4px">
+                    <div style="font-size:0.8em; color:#aaa">Completed (Session)</div>
+                    <div id="q-completed" style="font-size:1.5em; font-weight:bold; color:var(--success-color)">0</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- HISTORY TABLE -->
+        <div class="card">
+            <h3>Extraction History</h3>
+            <input type="text" class="search-bar" id="vinSearch" placeholder="Search VIN or Status..."
+                onkeyup="searchHistory()">
+            <div id="client-errors"
+                style="color:#cf6679; font-family:monospace; margin-bottom:10px; display:none; border:1px solid #cf6679; padding:5px; border-radius:4px; background:rgba(207, 102, 121, 0.1);">
+            </div>
+            <div style="max-height: 400px; overflow-y: auto;">
+                <table id="historyTable">
+                    <thead>
+                        <tr>
+                            <th style="width:140px">Date</th>
+                            <th style="width:160px">Vehicle</th>
+                            <th>Status Indicators</th>
+                            <th style="text-align:right">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <!-- Data populated by JS -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- LOG VIEWER -->
+        <div class="card">
+            <h3>Live System Logs</h3>
+            <div class="log-terminal" id="logTerminal">
+                Loading logs...
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // AUTH & CONFIG
+        const TOKEN = localStorage.getItem('sb_token');
+        if (!TOKEN) window.location.href = '/static/login.html';
+
+        const API_HEADERS = { 'X-Auth-Token': TOKEN };
+
+        // INITIAL LOAD
+        document.addEventListener('DOMContentLoaded', () => {
+            refreshAll();
+            // Auto-refresh logs and history every 5s
+            setInterval(() => {
+                fetchLogs();
+                fetchHistory(); // Auto-refresh history
+            }, 5000);
+        });
+
+        // ... [skip to fetchStats] ...
+
+        function showClientError(msg) {
+            const errDiv = document.getElementById('client-errors');
+            if (errDiv) {
+                const ts = new Date().toLocaleTimeString();
+                errDiv.innerHTML += `<div>[${ts}] ${msg}</div>`;
+                errDiv.style.display = 'block';
+            }
+            console.error(msg);
+        }
+
+
+
+        // ... [skip to fetchHistory] ...
+
+        async function fetchHistory() {
+            const query = document.getElementById('vinSearch').value;
+            let url = '/api/history?limit=25'; // Fixed limit for now
+            if (query) url += `&search=${encodeURIComponent(query)}`;
+
+            try {
+                const res = await fetch(url, { headers: API_HEADERS });
+                if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+                const data = await res.json();
+
+                const tbody = document.querySelector('#historyTable tbody');
+                tbody.innerHTML = '';
+
+                if (!data.history || !Array.isArray(data.history)) return;
+
+                data.history.forEach(row => {
+                    try {
+                        const tr = document.createElement('tr');
+
+                        // Date Parsing (Fix Timezone)
+                        let dateStr = 'Unknown';
+                        if (row.timestamp) {
+                            try {
+                                const dateObj = new Date(row.timestamp.replace(' ', 'T') + "Z");
+                                dateStr = dateObj.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: '2-digit' }) +
+                                    ' <span style="color:#666">' + dateObj.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' }) + '</span>';
+                            } catch (e) { dateStr = row.timestamp; }
+                        }
+
+                        // Filename
+                        const filename = row.file_path ? row.file_path.split(/[\\/]/).pop() : null;
+
+                        // Data Parsing
+                        let warranty = {};
+                        let recalls = { status: 'Unknown', message: '', details: [] };
+                        let lcdv = {};
+
+                        try { warranty = typeof row.warranty_data === 'string' ? JSON.parse(row.warranty_data) : row.warranty_data || {}; } catch (e) { }
+                        try { recalls = typeof row.recall_message === 'string' ? (row.recall_message.startsWith('{') ? JSON.parse(row.recall_message) : { message: row.recall_message }) : row.recall_message || {}; } catch (e) { }
+                        try { lcdv = typeof row.lcdv_data === 'string' ? JSON.parse(row.lcdv_data) : row.lcdv_data || {}; } catch (e) { }
+
+                        // --- Brand Logic ---
+                        const WMI_MAPPING = {
+                            "WVW": "Volkswagen", "WV1": "Volkswagen", "WV2": "Volkswagen", "WVG": "Volkswagen", "3VW": "Volkswagen", "9BW": "Volkswagen",
+                            "WAU": "Audi", "TRU": "Audi",
+                            "WBA": "BMW", "WBS": "BMW", "WBX": "BMW", "WMW": "Mini",
+                            "WDB": "Mercedes-Benz", "WDC": "Mercedes-Benz", "WDD": "Mercedes-Benz", "WDF": "Mercedes-Benz",
+                            "WP0": "Porsche", "WP1": "Porsche",
+                            "W0L": "Opel",
+                            "VSS": "Seat/Cupra", "TMB": "Skoda",
+                            "VR1": "DS", "VF3": "Peugeot", "VR3": "Peugeot",
+                            "VF7": "Citroen", "VR7": "Citroen",
+                            "VF1": "Renault", "UU1": "Dacia",
+                            "ZFA": "Fiat", "ZAR": "Alfa Romeo", "ZFF": "Ferrari", "ZHW": "Lamborghini", "ZAM": "Maserati",
+                            "YV1": "Volvo", "YV4": "Volvo", "LPS": "Polestar",
+                            "SAJ": "Jaguar", "SAL": "Land Rover",
+                            "JTD": "Toyota", "SB1": "Toyota", "JT6": "Lexus",
+                            "JN1": "Nissan", "SJN": "Nissan",
+                            "JMZ": "Mazda", "JHM": "Honda", "JSA": "Suzuki", "JF1": "Subaru", "JMB": "Mitsubishi",
+                            "KMH": "Hyundai", "TMA": "Hyundai",
+                            "KNA": "Kia", "KNM": "Kia", "U5Y": "Kia",
+                            "5YJ": "Tesla", "7SA": "Tesla",
+                            "1FA": "Ford", "1FZ": "Ford", "WF0": "Ford",
+                            "1G1": "Chevrolet", "1GC": "Chevrolet",
+                            "1C3": "Chrysler", "1C4": "Jeep",
+                            "WME": "Smart",
+                            "LSV": "SAIC Volkswagen", "LGX": "BYD", "LNB": "Geely", "LE4": "MG", "LSJ": "MG"
+                        };
+
+                        const VIN_REGEX = /^[A-HJ-NPR-Z0-9]{17}$/;
+
+                        let brandBadge = '';
+                        if (row.vin) {
+                            const vin = row.vin.toUpperCase();
+                            if (VIN_REGEX.test(vin)) {
+                                const wmi = vin.substring(0, 3);
+                                const brand = WMI_MAPPING[wmi];
+
+                                if (brand) {
+                                    // Determine color based on brand (Optional, can extract to helper)
+                                    let bg = '#444';
+                                    let fg = '#fff';
+
+                                    if (['Peugeot', 'Citroen', 'DS', 'Opel'].includes(brand)) {
+                                        if (brand === 'Peugeot') { bg = '#003399'; }
+                                        else if (brand === 'Citroen') { bg = '#DB0020'; }
+                                        else if (brand === 'DS') { bg = '#1e1e1e'; fg = '#c8a45e'; }
+                                        else if (brand === 'Opel') { bg = '#FFC800'; fg = '#000'; }
+                                    } else if (brand === 'Volkswagen' || brand === 'Audi' || brand === 'Porsche') {
+                                        bg = '#001e50';
+                                    } else if (brand === 'BMW' || brand === 'Mini') {
+                                        bg = '#0066b1';
+                                    } else if (brand === 'Mercedes-Benz') {
+                                        bg = '#000';
+                                    } else if (brand === 'Ferrari') {
+                                        bg = '#ff2800';
+                                    } else if (brand === 'Tesla') {
+                                        bg = '#e82127';
+                                    }
+
+                                    brandBadge = `<span style="background:${bg}; color:${fg}; padding:2px 6px; border-radius:4px; font-weight:bold; font-size:0.8em; border:1px solid rgba(255,255,255,0.1)">${brand.toUpperCase()}</span>`;
+                                } else {
+                                    // Valid VIN pattern but unknown manufacturer
+                                    brandBadge = `<span style="background:#333; color:#aaa; padding:2px 6px; border-radius:4px; font-size:0.8em">UNKNOWN WMI</span>`;
+                                }
+                            } else {
+                                // Invalid VIN pattern - No logo as requested, or maybe a warning
+                                // User said: "If validation fails -> Do not display a brand logo."
+                                brandBadge = '';
+                            }
+                        }
+
+                        // --- Vehicle Info Logic (Model & Plate) ---
+                        const plateKeys = ['Kennzeichen', 'Amtl. Kennzeichen', 'Immatriculation', 'Plate', 'Registration'];
+                        const modelKeys = ['Modell', 'Model', 'Baureihe', 'Vehicle Type'];
+
+                        const findValue = (obj, keys) => {
+                            if (!obj) return null;
+                            for (const k of Object.keys(obj)) {
+                                if (keys.some(pk => k.toLowerCase().includes(pk.toLowerCase()))) {
+                                    const val = obj[k];
+                                    // Ensure val is a string before matching
+                                    if (val && typeof val === 'string' && !val.match(/^\d{2}[\/.]\d{2}[\/.]\d{4}/)) return val;
+                                }
+                            }
+                            return null;
+                        };
+
+                        let plate = findValue(warranty, plateKeys) || findValue(lcdv, plateKeys) || '';
+                        let model = findValue(warranty, modelKeys) || findValue(lcdv, modelKeys) || (lcdv ? lcdv.Engine : '') || '';
+
+                        const plateDisplay = plate ? `<span style="border:1px solid #fff; color:#000; background:#fff; padding:0 4px; border-radius:2px; font-weight:bold; margin-left:8px; font-family:sans-serif; font-size:0.9em">${plate}</span>` : '';
+                        const modelDisplay = model ? `<div style="font-size:0.8em; color:#bbb">${model}</div>` : '';
+
+
+                        // --- LED LOGIC ---
+                        const ledStyle = "display:inline-block; width:10px; height:10px; border-radius:50%; margin-right:6px; vertical-align:middle;";
+
+                        // 1. Status LED
+                        let statusColor = '#555';
+                        if (row.status === 'Success') statusColor = '#03dac6';
+                        else if (row.status === 'Failed') statusColor = '#cf6679';
+
+                        let statusLed = `<span style="${ledStyle} background-color:${statusColor}; box-shadow:0 0 4px ${statusColor}" title="Extraction Status: ${row.status || 'Unknown'}"></span>`;
+
+                        // 2. Recall LED & Count
+                        let recallColor = '#03dac6'; // Default Green (Safe)
+                        let recallTitle = 'No Recalls';
+                        let recallCount = 0;
+
+                        if (recalls && recalls.details && Array.isArray(recalls.details)) {
+                            recalls.details.forEach(r => {
+                                if (r.status === 'Open' || r.status === 'Unknown') recallCount++;
+                            });
+                        } else if (recalls && recalls.message && /Rückruf|Recall/i.test(recalls.message)) {
+                            recallCount = 1; // Fallback
+                        }
+
+                        if ((recalls && recalls.status === 'Active') || recallCount > 0) {
+                            recallColor = '#cf6679'; // Red (Danger)
+                            recallTitle = `⚠ ACTIVE RECALLS: ${recallCount}`;
+                        } else if ((!recalls || !recalls.message) && (recalls && recalls.status !== 'None')) {
+                            recallColor = '#555'; // Unknown
+                            recallTitle = 'Recall Status Unknown';
+                        }
+
+                        // Warranty Display
+                        let warrantyDisplay = '';
+                        let warrantyEnd = warranty.Garantieende || warranty['Warranty End Date'];
+                        let warrantyDateObj = null;
+
+                        if (warrantyEnd) {
+                            try {
+                                const parts = warrantyEnd.split('/');
+                                if (parts.length === 3) {
+                                    warrantyDateObj = new Date(`${parts[2]}-${parts[1]}-${parts[0]}`);
+                                }
+                            } catch (e) { }
+                        }
+
+                        if (warrantyDateObj) {
+                            const isExpired = warrantyDateObj < new Date();
+                            const color = isExpired ? '#cf6679' : '#03dac6'; // Red : Teal
+                            // Force DD.MM.YYYY format
+                            const d = String(warrantyDateObj.getDate()).padStart(2, '0');
+                            const m = String(warrantyDateObj.getMonth() + 1).padStart(2, '0');
+                            const y = warrantyDateObj.getFullYear();
+                            const dateStr = `${d}.${m}.${y}`;
+
+                            warrantyDisplay = `
+                                <div style="display:flex; align-items:center; gap:6px; color:#ddd; font-size:0.9em;">
+                                    <span style="display:inline-block; width:8px; height:8px; border-radius:50%; background-color:${color}; box-shadow:0 0 5px ${color}"></span>
+                                    <span>End: ${dateStr}</span>
+                                </div>
+                            `;
+                        } else {
+                            warrantyDisplay = `<span style="color:#666; font-size:0.9em;">Warranty Unknown</span>`;
+                        }
+
+                        // Recalls Display
+                        let recallDisplay = '';
+                        let openRecallCodes = [];
+
+                        // Debug
+                        console.log(`[Row ${row.id}] Recalls Data Raw:`, row.recalls_data);
+
+                        // Parse if string (though API should return object)
+                        let recallsData = typeof row.recalls_data === 'string' ? JSON.parse(row.recalls_data) : row.recalls_data;
+                        let rCount = (recallsData && recallsData.details) ? recallsData.details.length : 0;
+
+                        console.log(`[Row ${row.id}] Parsed Recalls:`, recallsData, 'Count:', rCount);
+
+                        // Extract open codes
+                        if (recallsData && recallsData.details && Array.isArray(recallsData.details)) {
+                            recallsData.details.forEach(r => {
+                                if (r.status === 'Open' || (r.status === 'Unknown' && !r.code.includes('None'))) {
+                                    openRecallCodes.push(r.code);
+                                }
+                            });
+                        } else if (rCount > 0) {
+                            // Fallback if details missing but count > 0
+                            if (recallsData && recallsData.message && recallsData.message.includes('Active Codes:')) {
+                                const parts = recallsData.message.split('Active Codes:');
+                                if (parts.length > 1) openRecallCodes.push(parts[1].trim());
+                            } else {
+                                openRecallCodes.push("Unknown Code");
+                            }
+                        }
+
+                        openRecallCodes = openRecallCodes.slice(0, 5); // Max 5
+
+                        recallColor = openRecallCodes.length > 0 ? '#cf6679' : (recallsData && recallsData.status === 'Active' ? '#cf6679' : '#03dac6');
+
+                        // Status Active means Open Recalls usually.
+
+                        // Better logic:
+                        // If openRecallCodes > 0 -> Red
+                        // If recalls.status == 'Active' -> Red (fallback)
+                        // Else Green
+
+                        if (recallsData && recallsData.status === 'Active') recallColor = '#cf6679';
+                        if (openRecallCodes.length === 0 && (!recallsData || recallsData.status !== 'Active')) recallColor = '#03dac6';
+
+                        const recallText = `Recalls: ${openRecallCodes.length > 0 ? openRecallCodes.length : (recallsData && recallsData.status === 'Active' ? '!' : '0')}`;
+
+
+                        let codeListHtml = '';
+                        if (rCount > 0 && openRecallCodes.length > 0) {
+                            codeListHtml = `<div style="font-size:0.8em; color:#cf6679; margin-left:14px;">${openRecallCodes.join(', ')}</div>`;
+                        }
+
+                        recallDisplay = `
+                            <div style="display:flex; flex-direction:column; gap:2px;">
+                                <div style="display:flex; align-items:center; gap:6px;">
+                                    <span style="display:inline-block; width:8px; height:8px; border-radius:50%; background-color:${recallColor}; box-shadow:0 0 5px ${recallColor}"></span>
+                                    <span style="color:${recallColor}; font-weight:bold;">${recallText}</span>
+                                </div>
+                                ${codeListHtml}
+                            </div>
+                        `;
+
+                        tr.innerHTML = `
+                            <td style="white-space:nowrap">${dateStr}</td>
+                            <td>
+                                <div style="display:flex; align-items:center; margin-bottom:2px">
+                                    ${brandBadge} ${plateDisplay}
+                                </div>
+                                <div style="font-family:monospace; font-weight:bold; color:var(--accent-color); font-size:1.05em">${row.vin || 'UNKNOWN'}</div>
+                                ${modelDisplay}
+                            </td>
+                            <td>
+                                <div style="display:flex; flex-direction:column; gap:8px;">
+                                    ${recallDisplay}
+                                    ${warrantyDisplay}
+                                </div>
+                            </td>
+                            <td style="text-align:right">
+                                ${filename ? `<a href="/api/files/${filename}?token=${TOKEN}" target="_blank" class="btn btn-small btn-primary" style="text-decoration:none">⬇ PDF</a>` : ''}
+                            </td>
+                        `;
+                        tbody.appendChild(tr);
+                    } catch (rowErr) {
+                        showClientError("Row Render Error: " + rowErr.message + " (VIN: " + row.vin + ")");
+                    }
+                });
+            } catch (e) {
+                showClientError("History Fetch Error: " + e.message);
+            }
+        }
+
+        async function fetchLogs() {
+            try {
+                const res = await fetch('/api/logs?lines=50', { headers: API_HEADERS });
+                const data = await res.json();
+
+                const term = document.getElementById('logTerminal');
+                term.innerHTML = '';
+
+                data.logs.forEach(line => {
+                    const div = document.createElement('div');
+                    div.className = 'log-entry';
+
+                    if (line.includes('[INFO]')) div.classList.add('log-info');
+                    else if (line.includes('WARNING')) div.classList.add('log-warn');
+                    else if (line.includes('ERROR')) div.classList.add('log-error');
+
+                    div.innerText = line;
+                    term.appendChild(div);
+                });
+
+                // Auto-scroll if near bottom
+                term.scrollTop = term.scrollHeight;
+            } catch (e) {
+                showClientError("Log Fetch Error: " + e.message);
+            }
+        }
+        async function fetchStats() {
+            try {
+                const res = await fetch('/api/stats', { headers: API_HEADERS });
+                if (!res.ok) {
+                    if (res.status === 401) logout();
+                    return;
+                }
+                const stats = await res.json();
+
+                if (document.getElementById('kpi-total')) document.getElementById('kpi-total').innerText = stats.total_downloads;
+                if (document.getElementById('kpi-success')) document.getElementById('kpi-success').innerText = stats.success_rate + '%';
+
+                if (stats.queue) {
+                    const elPending = document.getElementById('q-pending');
+                    const elProcessing = document.getElementById('q-processing');
+                    const elFailed = document.getElementById('q-failed');
+                    const elCompleted = document.getElementById('q-completed');
+                    if (elPending) elPending.innerText = stats.queue.queued || 0;
+                    if (elProcessing) elProcessing.innerText = stats.queue.processing || 0;
+                    if (elFailed) elFailed.innerText = stats.queue.error || 0;
+                    if (elCompleted) elCompleted.innerText = stats.queue.success || 0;
+                }
+
+                // Update active tasks
+                const activeCard = document.querySelectorAll('.card')[3]; // 4th card is Active Tasks
+                if (activeCard) {
+                    const valDiv = activeCard.querySelector('.kpi-value');
+                    const subDiv = activeCard.querySelector('.kpi-sub');
+                    if (valDiv) valDiv.innerText = stats.active_tasks || 0;
+                    if (subDiv) {
+                        if (stats.active_tasks > 0) {
+                            subDiv.innerText = "Processing...";
+                            subDiv.style.color = "#03dac6";
+                        } else {
+                            subDiv.innerText = "Idle";
+                            subDiv.style.color = "#666";
+                        }
+                    }
+                }
+
+                if (stats.last_activity && document.getElementById('kpi-last')) {
+                    // Parse UTC timestamp
+                    let dt = stats.last_activity;
+                    if (dt !== "Never") {
+                        if (!dt.endsWith('Z')) dt += 'Z';
+                        document.getElementById('kpi-last').innerText = new Date(dt).toLocaleString();
+                    } else {
+                        document.getElementById('kpi-last').innerText = "Never";
+                    }
+                }
+
+            } catch (e) { showClientError("Stats fetch error: " + e.message); }
+        }
+
+        setInterval(fetchStats, 2000);
+
+        // Functions called by HTML buttons
+        function refreshAll() {
+            fetchStats();
+            fetchHistory();
+            fetchLogs();
+            document.getElementById('vinSearch').value = '';
+        }
+
+        async function apiAction(action) {
+            if (!confirm(`Are you sure you want to ${action} the server?`)) return;
+            try {
+                await fetch(`/api/system/${action}`, { method: 'POST', headers: API_HEADERS });
+                alert(`Server ${action} initiated.`);
+            } catch (e) {
+                alert("Action failed: " + e);
+            }
+        }
+
+        function logout() {
+            localStorage.removeItem('sb_token');
+            window.location.href = '/static/login.html';
+        }
+
+        function searchHistory() {
+            fetchHistory();
+        }
+    </script>
+</body>
+
+</html>

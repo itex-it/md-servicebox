@@ -1,0 +1,2194 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head>
+
+
+<meta name="description" content="">
+<meta name="keywords" content="">
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<meta http-equiv="Content-Script-Type" content="text/javascript">
+<meta http-equiv="Content-Style-Type" content="text/css">
+<meta http-equiv="imagetoolbar" content="no">
+<meta http-equiv="X-UA-Compatible" content="IE=9"> 
+
+<title>Service Box - 020900G - DP92228 - Winter Alois</title>
+
+
+
+<!--JBN-1725:DefectId:4733 -->
+<link rel="shortcut icon" type="image/x-icon" href="../../../images/favicon.ico">
+
+
+
+
+
+
+
+	
+	
+	
+    <link href="/static/8.5.10/css/styles.css" rel="stylesheet" type="text/css" media="all">
+
+
+
+
+
+
+
+
+
+
+<!-- for JIRA SM1-PH1 -->
+
+<style>
+.loadingDiv {
+background: url("../../images/wait.gif") no-repeat center center fixed;
+background-color: rgba(0,0,0,0.2);
+position: absolute;
+left: 0;
+top: 0;
+width: 100%;
+height: 100%;
+z-index: 999;
+}
+</style>
+
+
+<!--[if lte IE 7]><link href="/css/ie.css" rel="stylesheet" type="text/css" media="all" /><![endif]-->
+
+
+
+<script type="text/javascript" src="/static/8.5.10/script/jquery-1.7.2.min.js" language="javascript"></script>
+<script src="/static/8.5.10/script/webCacheInternal.js" type="text/javascript"></script>
+<script src="/static/8.5.10/script/webCache.js" type="text/javascript"></script>
+<script type="text/javascript">
+
+var console2 = window.console;
+//si la console n'existe pas on la crée pour eviter des erreurs
+if (!console2) {
+window.console = {
+log: function(txt) {},
+trace: function(txt){},
+debug: function(txt){},
+info: function(txt){},
+warn: function(txt){},
+error: function(txt){}
+};
+}
+
+var jQueryJBN = jQuery.noConflict(true), debug = typeof console !== "undefined" && false;
+if (debug) console.log((jQuery) ? "jQuery : " + jQuery.fn.jquery : "jQuery No conflict JBN : " + jQueryJBN.fn.jquery );
+jQueryJBN(document).ready(function(){
+var otherBrandLib=jQueryJBN(".otherBrandLib");
+otherBrandLib.each(function(index,element){
+var $currentElement=jQueryJBN(element);
+$currentElement.html(function(index,oldText){
+var a=$currentElement.text().trim().split(" ");
+return a.join("<br/>");
+});
+$currentElement.append('<span class="value"></span>');
+});
+});
+
+var hubMarque = 'AP';
+function changeNavigationAP() {
+if(document.getElementById('rrdiIdHub').value != undefined && document.getElementById('rrdiIdHub').value != ""){
+jQueryJBN("#brandIdHub").val("AP");
+jQueryJBN("#rrdiIdHub").val(webCacheInternal.getBrandRrdiCode("AP"));
+webCacheInternal.sendBrandInformation("AP");
+}
+jQueryJBN('<div class=loadingDiv>loading...</div>').prependTo(document.body);
+var jvin = document.getElementById("vin").value;
+window.location.assign("/do/newApvprStart?navigationBrand=AP&jvin=" + jvin);
+}
+function changeNavigationAC() {
+if(document.getElementById('rrdiIdHub').value != undefined && document.getElementById('rrdiIdHub').value != ""){
+jQueryJBN("#brandIdHub").val("AC");
+jQueryJBN("#rrdiIdHub").val(webCacheInternal.getBrandRrdiCode("AC"));
+webCacheInternal.sendBrandInformation("AC");
+}
+jQueryJBN('<div class=loadingDiv>loading...</div>').prependTo(document.body);
+var jvin = document.getElementById("vin").value;
+window.location.assign("/do/newApvprStart?navigationBrand=AC&jvin=" + jvin);
+}
+function changeNavigationDS() {
+if(document.getElementById('rrdiIdHub').value != undefined && document.getElementById('rrdiIdHub').value != ""){
+jQueryJBN("#brandIdHub").val("DS");
+jQueryJBN("#rrdiIdHub").val(webCacheInternal.getBrandRrdiCode("DS"));
+webCacheInternal.sendBrandInformation("DS");
+}
+jQueryJBN('<div class=loadingDiv>loading...</div>').prependTo(document.body);
+var jvin = document.getElementById("vin").value;
+window.location.assign("/do/newApvprStart?navigationBrand=DS&jvin=" + jvin);
+}
+//OV integration SM1-PH1
+function changeNavigationOV() {
+if(document.getElementById('rrdiIdHub').value != undefined && document.getElementById('rrdiIdHub').value != ""){
+jQueryJBN("#brandIdHub").val("OV");
+jQueryJBN("#rrdiIdHub").val(webCacheInternal.getBrandRrdiCode("OV"));
+webCacheInternal.sendBrandInformation("OV");
+}
+jQueryJBN('<div class=loadingDiv>loading...</div>').prependTo(document.body);
+var jvin = document.getElementById("vin").value;
+window.location.assign("/do/newApvprStart?navigationBrand=OV&jvin=" + jvin);
+}
+// JIRA SM1-PH2
+function changeNavigationCT() {
+if(document.getElementById('rrdiIdHub').value != undefined && document.getElementById('rrdiIdHub').value != ""){
+jQueryJBN("#brandIdHub").val("CT");
+jQueryJBN("#rrdiIdHub").val(webCacheInternal.getBrandRrdiCode("CT"));
+webCacheInternal.sendBrandInformation("CT");
+}
+jQueryJBN('<div class=loadingDiv>loading...</div>').prependTo(document.body);
+var jvin = document.getElementById("vin").value;
+window.location.assign("/do/newApvprStart?navigationBrand=CT&jvin=" + jvin);
+}
+function changeNavigationOTHER() {
+jQueryJBN('<div class=loadingDiv>loading...</div>').prependTo(document.body);
+var jvin = document.getElementById("vin").value;
+window.location.assign("/do/newApvprStart?navigationBrand=OTHER&jvin=" + jvin);
+}
+/* SBCHROME-11 ALM-937 CAP-13736 to fix chrome issue */
+function addUserAgentClassToVinSearchBox() {
+var hubUserAgent = navigator.userAgent;
+if(hubUserAgent && hubUserAgent.search('MSIE 10.0') != -1) {
+jQueryJBN('#location .search form #short-vin').addClass('ie10search');
+}
+}
+</script>
+<script type="text/javascript" src="/static/8.5.10/script/jquery.promobox-min.js" language="javascript"></script>
+<script src="/do/apiboxjs" type="text/javascript"></script>
+<script src="/do/vsapiboxjs" type="text/javascript"></script> <!-- JBN-1311 VS Icon -->
+<script src="/do/dmbrjs" type="text/javascript"></script>  <!-- CAP-21336 DIMBO -->
+<script src="/do/stellaCareJs" type="text/javascript"></script>  <!-- CAP-37495,JBN-1873, CAP-37622 : STELLA / BRAND - CARE INTEGRATION -->
+<script type="text/javascript" language="Javascript1.1"> 
+
+<!-- Begin 
+
+    var bCancel = false; 
+
+    function validateVehicule(form) { 
+        if (bCancel) { 
+            return true; 
+        } else { 
+            var formValidationResult; 
+            formValidationResult = validateRequired(form) && validateMask(form); 
+            return (formValidationResult); 
+        } 
+    } 
+
+    function vehicule_required () { 
+     this.a0 = new Array("jvin", "Sie müssen eine VIN/VIS eingeben", new Function ("varName", "this.mask=/^[a-zA-Z0-9\\-\\.]{3,17}$/;  return this[varName];"));
+    } 
+
+    function vehicule_mask () { 
+     this.a0 = new Array("jvin", "ungültig", new Function ("varName", "this.mask=/^[a-zA-Z0-9\\-\\.]{3,17}$/;  return this[varName];"));
+    } 
+
+
+
+
+   /*$RCSfile: validateDate.js,v $ $Revision: 1.10 $ $Date: 2004/03/28 16:53:21 $ */
+    /**
+    * Check to see if fields are a valid date.
+    * Fields are not checked if they are disabled.
+    * <p>
+    * @param form The form validation is taking place on.
+    */
+    function validateDate(form) {
+       var bValid = true;
+       var focusField = null;
+       var i = 0;
+       var fields = new Array();
+       var formName = form.getAttributeNode("name"); 
+
+       oDate = eval('new ' + formName.value + '_DateValidations()');
+
+       for (x in oDate) {
+           var field = form[oDate[x][0]];
+           var value = field.value;
+           var datePattern = oDate[x][2]("datePatternStrict");
+           // try loose pattern
+           if (datePattern == null)
+               datePattern = oDate[x][2]("datePattern");
+           if ((field.type == 'hidden' ||
+                field.type == 'text' ||
+                field.type == 'textarea') &&
+               (value.length > 0) && (datePattern.length > 0) &&
+                field.disabled == false) {
+                 var MONTH = "MM";
+                 var DAY = "dd";
+                 var YEAR = "yyyy";
+                 var orderMonth = datePattern.indexOf(MONTH);
+                 var orderDay = datePattern.indexOf(DAY);
+                 var orderYear = datePattern.indexOf(YEAR);
+                 if ((orderDay < orderYear && orderDay > orderMonth)) {
+                     var iDelim1 = orderMonth + MONTH.length;
+                     var iDelim2 = orderDay + DAY.length;
+                     var delim1 = datePattern.substring(iDelim1, iDelim1 + 1);
+                     var delim2 = datePattern.substring(iDelim2, iDelim2 + 1);
+                     if (iDelim1 == orderDay && iDelim2 == orderYear) {
+                        dateRegexp = new RegExp("^(\\d{2})(\\d{2})(\\d{4})$");
+                     } else if (iDelim1 == orderDay) {
+                        dateRegexp = new RegExp("^(\\d{2})(\\d{2})[" + delim2 + "](\\d{4})$");
+                     } else if (iDelim2 == orderYear) {
+                        dateRegexp = new RegExp("^(\\d{2})[" + delim1 + "](\\d{2})(\\d{4})$");
+                     } else {
+                        dateRegexp = new RegExp("^(\\d{2})[" + delim1 + "](\\d{2})[" + delim2 + "](\\d{4})$");
+                     }
+                     var matched = dateRegexp.exec(value);
+                     if(matched != null) {
+                        if (!isValidDate(matched[2], matched[1], matched[3])) {
+                           if (i == 0) {
+                               focusField = field;
+                           }
+                           fields[i++] = oDate[x][1];
+                           bValid =  false;
+                        }
+                     } else {
+                        if (i == 0) {
+                            focusField = field;
+                        }
+                        fields[i++] = oDate[x][1];
+                        bValid =  false;
+                     }
+                 } else if ((orderMonth < orderYear && orderMonth > orderDay)) {
+                     var iDelim1 = orderDay + DAY.length;
+                     var iDelim2 = orderMonth + MONTH.length;
+                     var delim1 = datePattern.substring(iDelim1, iDelim1 + 1);
+                     var delim2 = datePattern.substring(iDelim2, iDelim2 + 1);
+                     if (iDelim1 == orderMonth && iDelim2 == orderYear) {
+                         dateRegexp = new RegExp("^(\\d{2})(\\d{2})(\\d{4})$");
+                     } else if (iDelim1 == orderMonth) {
+                         dateRegexp = new RegExp("^(\\d{2})(\\d{2})[" + delim2 + "](\\d{4})$");
+                     } else if (iDelim2 == orderYear) {
+                         dateRegexp = new RegExp("^(\\d{2})[" + delim1 + "](\\d{2})(\\d{4})$");
+                     } else {
+                         dateRegexp = new RegExp("^(\\d{2})[" + delim1 + "](\\d{2})[" + delim2 + "](\\d{4})$");
+                     }
+                     var matched = dateRegexp.exec(value);
+                     if(matched != null) {
+                         if (!isValidDate(matched[1], matched[2], matched[3])) {
+                             if (i == 0) {
+                         focusField = field;
+                             }
+                             fields[i++] = oDate[x][1];
+                             bValid =  false;
+                          }
+                     } else {
+                         if (i == 0) {
+                             focusField = field;
+                         }
+                         fields[i++] = oDate[x][1];
+                         bValid =  false;
+                     }
+                 } else if ((orderMonth > orderYear && orderMonth < orderDay)) {
+                     var iDelim1 = orderYear + YEAR.length;
+                     var iDelim2 = orderMonth + MONTH.length;
+                     var delim1 = datePattern.substring(iDelim1, iDelim1 + 1);
+                     var delim2 = datePattern.substring(iDelim2, iDelim2 + 1);
+                     if (iDelim1 == orderMonth && iDelim2 == orderDay) {
+                         dateRegexp = new RegExp("^(\\d{4})(\\d{2})(\\d{2})$");
+                     } else if (iDelim1 == orderMonth) {
+                         dateRegexp = new RegExp("^(\\d{4})(\\d{2})[" + delim2 + "](\\d{2})$");
+                     } else if (iDelim2 == orderDay) {
+                         dateRegexp = new RegExp("^(\\d{4})[" + delim1 + "](\\d{2})(\\d{2})$");
+                     } else {
+                         dateRegexp = new RegExp("^(\\d{4})[" + delim1 + "](\\d{2})[" + delim2 + "](\\d{2})$");
+                     }
+                     var matched = dateRegexp.exec(value);
+                     if(matched != null) {
+                         if (!isValidDate(matched[3], matched[2], matched[1])) {
+                             if (i == 0) {
+                                 focusField = field;
+                             }
+                             fields[i++] = oDate[x][1];
+                             bValid =  false;
+                         }
+                     } else {
+                          if (i == 0) {
+                              focusField = field;
+                          }
+                          fields[i++] = oDate[x][1];
+                          bValid =  false;
+                     }
+                 } else {
+                     if (i == 0) {
+                         focusField = field;
+                     }
+                     fields[i++] = oDate[x][1];
+                     bValid =  false;
+                 }
+          }
+       }
+       if (fields.length > 0) {
+          focusField.focus();
+          alert(fields.join('\n'));
+       }
+       return bValid;
+    }
+    
+    function isValidDate(day, month, year) {
+	    if (month < 1 || month > 12) {
+            return false;
+        }
+        if (day < 1 || day > 31) {
+            return false;
+        }
+        if ((month == 4 || month == 6 || month == 9 || month == 11) &&
+            (day == 31)) {
+            return false;
+        }
+        if (month == 2) {
+            var leap = (year % 4 == 0 &&
+               (year % 100 != 0 || year % 400 == 0));
+            if (day>29 || (day == 29 && !leap)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+
+    /*$RCSfile: validateMinLength.js,v $ $Revision: 1.11 $ $Date: 2004/03/28 16:53:21 $ */
+    /**
+    * A field is considered valid if greater than the specified minimum.
+    * Fields are not checked if they are disabled.
+    * <p>
+    * <strong>Caution:</strong> Using <code>validateMinLength</code> on a password field in a 
+    *  login page gives unnecessary information away to hackers. While it only slightly
+    *  weakens security, we suggest using it only when modifying a password.</p>
+    * @param form The form validation is taking place on.
+    */
+    function validateMinLength(form) {
+        var isValid = true;
+        var focusField = null;
+        var i = 0;
+        var fields = new Array();
+        var formName = form.getAttributeNode("name");
+
+
+        oMinLength = eval('new ' + formName.value + '_minlength()');
+
+        for (x in oMinLength) {
+            var field = form[oMinLength[x][0]];
+
+            if ((field.type == 'hidden' ||
+                field.type == 'text' ||
+                field.type == 'password' ||
+                field.type == 'textarea') &&
+                field.disabled == false) {
+
+                var iMin = parseInt(oMinLength[x][2]("minlength"));
+                if ((trim(field.value).length > 0) && (field.value.length < iMin)) {
+                    if (i == 0) {
+                        focusField = field;
+                    }
+                    fields[i++] = oMinLength[x][1];
+                    isValid = false;
+                }
+            }
+        }
+        if (fields.length > 0) {
+           focusField.focus();
+           alert(fields.join('\n'));
+        }
+        return isValid;
+    }
+
+
+    /*$RCSfile: validateIntRange.js,v $ $Revision: 1.10 $ $Date: 2004/03/28 16:53:21 $ */
+    /**
+    * Check to see if fields is in a valid integer range.
+    * Fields are not checked if they are disabled.
+    * <p>
+    * @param form The form validation is taking place on.
+    */
+    function validateIntRange(form) {
+        var isValid = true;
+        var focusField = null;
+        var i = 0;
+        var fields = new Array();
+        var formName = form.getAttributeNode("name"); 
+
+        oRange = eval('new ' + formName.value + '_intRange()');        
+        for (x in oRange) {
+            var field = form[oRange[x][0]];
+            if (field.disabled == false)  {
+                var value = '';
+                if (field.type == 'hidden' ||
+                    field.type == 'text' || field.type == 'textarea' ||
+                    field.type == 'radio' ) {
+                    value = field.value;
+                }
+                if (field.type == 'select-one') {
+                    var si = field.selectedIndex;
+                    if (si >= 0) {
+                        value = field.options[si].value;
+                    }
+                }
+                if (value.length > 0) {
+                    var iMin = parseInt(oRange[x][2]("min"));
+                    var iMax = parseInt(oRange[x][2]("max"));
+                    var iValue = parseInt(value);
+                    if (!(iValue >= iMin && iValue <= iMax)) {
+                        if (i == 0) {
+                            focusField = field;
+                        }
+                        fields[i++] = oRange[x][1];
+                        isValid = false;
+                    }
+                }
+            }
+        }
+        if (fields.length > 0) {
+            focusField.focus();
+            alert(fields.join('\n'));
+        }
+        return isValid;
+    }
+
+
+    /*$RCSfile: validateMaxLength.js,v $ $Revision: 1.10 $ $Date: 2004/03/28 16:53:21 $ */
+    /**
+    * A field is considered valid if less than the specified maximum.
+    * Fields are not checked if they are disabled.
+    * <p>
+    * <strong>Caution:</strong> Using <code>validateMaxLength</code> on a password field in a 
+    *  login page gives unnecessary information away to hackers. While it only slightly
+    *  weakens security, we suggest using it only when modifying a password.</p>
+    * @param form The form validation is taking place on.
+    */
+    function validateMaxLength(form) {
+        var isValid = true;
+        var focusField = null;
+        var i = 0;
+        var fields = new Array();
+        var formName = form.getAttributeNode("name"); 
+
+        oMaxLength = eval('new ' + formName.value + '_maxlength()');        
+        for (x in oMaxLength) {
+            var field = form[oMaxLength[x][0]];
+
+            if ((field.type == 'hidden' ||
+                field.type == 'text' ||
+                field.type == 'password' ||
+                field.type == 'textarea') &&
+                field.disabled == false) {
+
+                var iMax = parseInt(oMaxLength[x][2]("maxlength"));
+                if (field.value.length > iMax) {
+                    if (i == 0) {
+                        focusField = field;
+                    }
+                    fields[i++] = oMaxLength[x][1];
+                    isValid = false;
+                }
+            }
+        }
+        if (fields.length > 0) {
+           focusField.focus();
+           alert(fields.join('\n'));
+        }
+        return isValid;
+    }
+
+
+   /*$RCSfile: validateFloatRange.js,v $ $Revision: 1.9 $ $Date: 2004/03/28 16:53:21 $ */
+    /**
+    * Check to see if fields are in a valid float range.
+    * Fields are not checked if they are disabled.
+    * <p>
+    * @param form The form validation is taking place on.
+    */
+    function validateFloatRange(form) {
+        var isValid = true;
+        var focusField = null;
+        var i = 0;
+        var fields = new Array();
+        var formName = form.getAttributeNode("name"); 
+
+        oRange = eval('new ' + formName.value + '_floatRange()');
+        for (x in oRange) {
+            var field = form[oRange[x][0]];
+            
+            if ((field.type == 'hidden' ||
+                field.type == 'text' || field.type == 'textarea') &&
+                (field.value.length > 0)  &&
+                 field.disabled == false) {
+        
+                var fMin = parseFloat(oRange[x][2]("min"));
+                var fMax = parseFloat(oRange[x][2]("max"));
+                var fValue = parseFloat(field.value);
+                if (!(fValue >= fMin && fValue <= fMax)) {
+                    if (i == 0) {
+                        focusField = field;
+                    }
+                    fields[i++] = oRange[x][1];
+                    isValid = false;
+                }
+            }
+        }
+        if (fields.length > 0) {
+            focusField.focus();
+            alert(fields.join('\n'));
+        }
+        return isValid;
+    }
+
+
+    /*$RCSfile: validateByte.js,v $ $Revision: 1.9 $ $Date: 2004/03/28 16:53:21 $ */
+    /**
+    * Check to see if fields are a valid byte.
+    * Fields are not checked if they are disabled.
+    * <p>
+    * @param form The form validation is taking place on.
+    */
+    function validateByte(form) {
+        var bValid = true;
+        var focusField = null;
+        var i = 0;
+        var fields = new Array();
+        var formName = form.getAttributeNode("name"); 
+        oByte = eval('new ' + formName.value + '_ByteValidations()');
+
+        for (x in oByte) {
+            var field = form[oByte[x][0]];
+
+            if ((field.type == 'hidden' ||
+                field.type == 'text' ||
+                field.type == 'textarea' ||
+                field.type == 'select-one' ||
+                field.type == 'radio')  &&
+                field.disabled == false) {
+
+                var value = '';
+                // get field's value
+                if (field.type == "select-one") {
+                    var si = field.selectedIndex;
+                    if (si >= 0) {
+                        value = field.options[si].value;
+                    }
+                } else {
+                    value = field.value;
+                }
+
+                if (value.length > 0) {
+                    if (!isAllDigits(value)) {
+                        bValid = false;
+                        if (i == 0) {
+                            focusField = field;
+                        }
+                        fields[i++] = oByte[x][1];
+
+                    } else {
+
+                        var iValue = parseInt(value);
+                        if (isNaN(iValue) || !(iValue >= -128 && iValue <= 127)) {
+                            if (i == 0) {
+                                focusField = field;
+                            }
+                            fields[i++] = oByte[x][1];
+                            bValid = false;
+                        }
+                    }
+                }
+
+            }
+        }
+        if (fields.length > 0) {
+           focusField.focus();
+           alert(fields.join('\n'));
+        }
+        return bValid;
+    }
+
+
+    /*$RCSfile: validateInteger.js,v $ $Revision: 1.9 $ $Date: 2004/03/28 16:53:21 $ */
+    /**
+    * Check to see if fields are a valid integer.
+    * Fields are not checked if they are disabled.
+    * <p>
+    * @param form The form validation is taking place on.
+    */
+    function validateInteger(form) {
+        var bValid = true;
+        var focusField = null;
+        var i = 0;
+        var fields = new Array();
+        var formName = form.getAttributeNode("name"); 
+
+        oInteger = eval('new ' + formName.value + '_IntegerValidations()');
+        for (x in oInteger) {
+            var field = form[oInteger[x][0]];
+
+            if ((field.type == 'hidden' ||
+                field.type == 'text' ||
+                field.type == 'textarea' ||
+                field.type == 'select-one' ||
+                field.type == 'radio') &&
+                field.disabled == false) {
+
+                var value = '';
+                // get field's value
+                if (field.type == "select-one") {
+                    var si = field.selectedIndex;
+                    if (si >= 0) {
+                        value = field.options[si].value;
+                    }
+                } else {
+                    value = field.value;
+                }
+
+                if (value.length > 0) {
+
+                    if (!isAllDigits(value)) {
+                        bValid = false;
+                        if (i == 0) {
+                            focusField = field;
+                        }
+                        fields[i++] = oInteger[x][1];
+
+                    } else {
+                        var iValue = parseInt(value);
+                        if (isNaN(iValue) || !(iValue >= -2147483648 && iValue <= 2147483647)) {
+                            if (i == 0) {
+                                focusField = field;
+                            }
+                            fields[i++] = oInteger[x][1];
+                            bValid = false;
+                       }
+                   }
+               }
+            }
+        }
+        if (fields.length > 0) {
+           focusField.focus();
+           alert(fields.join('\n'));
+        }
+        return bValid;
+    }
+
+    function isAllDigits(argvalue) {
+        argvalue = argvalue.toString();
+        var validChars = "0123456789";
+        var startFrom = 0;
+        if (argvalue.substring(0, 2) == "0x") {
+           validChars = "0123456789abcdefABCDEF";
+           startFrom = 2;
+        } else if (argvalue.charAt(0) == "0") {
+           validChars = "01234567";
+           startFrom = 1;
+        } else if (argvalue.charAt(0) == "-") {
+            startFrom = 1;
+        }
+
+        for (var n = startFrom; n < argvalue.length; n++) {
+            if (validChars.indexOf(argvalue.substring(n, n+1)) == -1) return false;
+        }
+        return true;
+    }
+
+
+    /*$RCSfile: validateFloat.js,v $ $Revision: 1.11 $ $Date: 2004/03/28 16:53:21 $ */
+    /**
+    * Check to see if fields are a valid float.
+    * Fields are not checked if they are disabled.
+    * <p>
+    * @param form The form validation is taking place on.
+    */
+    function validateFloat(form) {
+        var bValid = true;
+        var focusField = null;
+        var i = 0;
+        var fields = new Array();
+         var formName = form.getAttributeNode("name");
+
+        oFloat = eval('new ' + formName.value + '_FloatValidations()');
+        for (x in oFloat) {
+        	var field = form[oFloat[x][0]];
+        	
+            if ((field.type == 'hidden' ||
+                field.type == 'text' ||
+                field.type == 'textarea' ||
+                field.type == 'select-one' ||
+                field.type == 'radio') &&
+                field.disabled == false) {
+        
+            	var value = '';
+                // get field's value
+                if (field.type == "select-one") {
+                    var si = field.selectedIndex;
+                    if (si >= 0) {
+                        value = field.options[si].value;
+                    }
+                } else {
+                    value = field.value;
+                }
+        
+                if (value.length > 0) {
+                    // remove '.' before checking digits
+                    var tempArray = value.split('.');
+                    //Strip off leading '0'
+                    var zeroIndex = 0;
+                    var joinedString= tempArray.join('');
+                    while (joinedString.charAt(zeroIndex) == '0') {
+                        zeroIndex++;
+                    }
+                    var noZeroString = joinedString.substring(zeroIndex,joinedString.length);
+
+                    if (!isAllDigits(noZeroString)) {
+                        bValid = false;
+                        if (i == 0) {
+                            focusField = field;
+                        }
+                        fields[i++] = oFloat[x][1];
+
+                    } else {
+	                var iValue = parseFloat(value);
+	                if (isNaN(iValue)) {
+	                    if (i == 0) {
+	                        focusField = field;
+	                    }
+	                    fields[i++] = oFloat[x][1];
+	                    bValid = false;
+	                }
+                    }
+                }
+            }
+        }
+        if (fields.length > 0) {
+           focusField.focus();
+           alert(fields.join('\n'));
+        }
+        return bValid;
+    }
+
+
+    /*$RCSfile: validateRequired.js,v $ $Revision: 1.13 $ $Date: 2004/03/28 16:53:21 $ */
+    /**
+    *  Check to see if fields must contain a value.
+    * Fields are not checked if they are disabled.
+    * <p>
+    * @param form The form validation is taking place on.
+    */
+
+    function validateRequired(form) {
+        var isValid = true;
+        var focusField = null;
+        var i = 0;
+        var fields = new Array();
+        var formName = form.getAttributeNode("name");
+
+        oRequired = eval('new ' + formName.value + '_required()');
+
+        for (x in oRequired) {
+            var field = form[oRequired[x][0]];
+
+            if ((field.type == 'hidden' ||
+                field.type == 'text' ||
+                field.type == 'textarea' ||
+                field.type == 'file' ||
+                field.type == 'checkbox' ||
+                field.type == 'select-one' ||
+                field.type == 'password') &&
+                field.disabled == false) {
+
+                var value = '';
+                // get field's value
+                if (field.type == "select-one") {
+                    var si = field.selectedIndex;
+                    if (si >= 0) {
+                        value = field.options[si].value;
+                    }
+                } else if (field.type == 'checkbox') {
+                    if (field.checked) {
+                        value = field.value;
+                    }
+                } else {
+                    value = field.value;
+                }
+
+                if (trim(value).length == 0) {
+
+                    if (i == 0) {
+                        focusField = field;
+                    }
+                    fields[i++] = oRequired[x][1];
+                    isValid = false;
+                }
+            } else if (field.type == "select-multiple") { 
+                var numOptions = field.options.length;
+                lastSelected=-1;
+                for(loop=numOptions-1;loop>=0;loop--) {
+                    if(field.options[loop].selected) {
+                        lastSelected = loop;
+                        value = field.options[loop].value;
+                        break;
+                    }
+                }
+                if(lastSelected < 0 || trim(value).length == 0) {
+                    if(i == 0) {
+                        focusField = field;
+                    }
+                    fields[i++] = oRequired[x][1];
+                    isValid=false;
+                }
+            } else if ((field.length > 0) && (field[0].type == 'radio' || field[0].type == 'checkbox')) {
+                isChecked=-1;
+                for (loop=0;loop < field.length;loop++) {
+                    if (field[loop].checked) {
+                        isChecked=loop;
+                        break; // only one needs to be checked
+                    }
+                }
+                if (isChecked < 0) {
+                    if (i == 0) {
+                        focusField = field[0];
+                    }
+                    fields[i++] = oRequired[x][1];
+                    isValid=false;
+                }
+            }
+        }
+        if (fields.length > 0) {
+           focusField.focus();
+           alert(fields.join('\n'));
+        }
+        return isValid;
+    }
+    
+    // Trim whitespace from left and right sides of s.
+    function trim(s) {
+        return s.replace( /^\s*/, "" ).replace( /\s*$/, "" );
+    }
+
+    /*$RCSfile: validateUtilities.js,v $ $Revision: 1.2 $ $Date: 2004/03/28 16:53:21 $ */
+
+  /**
+  * This is a place holder for common utilities used across the javascript validation
+  *
+  **/
+
+
+    /*$RCSfile: validateShort.js,v $ $Revision: 1.9 $ $Date: 2004/03/28 16:53:21 $ */
+    /**
+    *  Check to see if fields are a valid short.
+    * Fields are not checked if they are disabled.
+    * <p>
+    * @param form The form validation is taking place on.
+    */
+    function validateShort(form) {
+        var bValid = true;
+        var focusField = null;
+        var i = 0;
+        var fields = new Array();
+        var formName = form.getAttributeNode("name");
+
+        oShort = eval('new ' + formName.value + '_ShortValidations()');
+
+        for (x in oShort) {
+            var field = form[oShort[x][0]];
+
+            if ((field.type == 'hidden' ||
+                field.type == 'text' ||
+                field.type == 'textarea' ||
+                field.type == 'select-one' ||
+                field.type == 'radio')  &&
+                field.disabled == false) {
+
+                var value = '';
+                // get field's value
+                if (field.type == "select-one") {
+                    var si = field.selectedIndex;
+                    if (si >= 0) {
+                        value = field.options[si].value;
+                    }
+                } else {
+                    value = field.value;
+                }
+
+                if (value.length > 0) {
+                    if (!isAllDigits(value)) {
+                        bValid = false;
+                        if (i == 0) {
+                            focusField = field;
+                        }
+                        fields[i++] = oShort[x][1];
+
+                    } else {
+
+                        var iValue = parseInt(value);
+                        if (isNaN(iValue) || !(iValue >= -32768 && iValue <= 32767)) {
+                            if (i == 0) {
+                                focusField = field;
+                            }
+                            fields[i++] = oShort[x][1];
+                            bValid = false;
+                        }
+                   }
+               }
+            }
+        }
+        if (fields.length > 0) {
+           focusField.focus();
+           alert(fields.join('\n'));
+        }
+        return bValid;
+    }
+
+
+    /*$RCSfile: validateCreditCard.js,v $ $Revision: 1.8 $ $Date: 2004/03/28 16:53:21 $ */
+    /**
+    * Check to see if fields are a valid creditcard number based on Luhn checksum.
+    * Fields are not checked if they are disabled.
+    * <p>
+    * @param form The form validation is taking place on.
+    */
+    function validateCreditCard(form) {
+        var bValid = true;
+        var focusField = null;
+        var i = 0;
+        var fields = new Array();
+        var formName = form.getAttributeNode("name");
+
+        oCreditCard = eval('new ' + formName.value + '_creditCard()');
+
+        for (x in oCreditCard) {
+            if ((form[oCreditCard[x][0]].type == 'text' ||
+                 form[oCreditCard[x][0]].type == 'textarea') &&
+                (form[oCreditCard[x][0]].value.length > 0)  &&
+                 form[oCreditCard[x][0]].disabled == false) {
+                if (!luhnCheck(form[oCreditCard[x][0]].value)) {
+                    if (i == 0) {
+                        focusField = form[oCreditCard[x][0]];
+                    }
+                    fields[i++] = oCreditCard[x][1];
+                    bValid = false;
+                }
+            }
+        }
+        if (fields.length > 0) {
+            focusField.focus();
+            alert(fields.join('\n'));
+        }
+        return bValid;
+    }
+
+    /**
+     * Checks whether a given credit card number has a valid Luhn checksum.
+     * This allows you to spot most randomly made-up or garbled credit card numbers immediately.
+     * Reference: http://www.speech.cs.cmu.edu/~sburke/pub/luhn_lib.html
+     */
+    function luhnCheck(cardNumber) {
+        if (isLuhnNum(cardNumber)) {
+            var no_digit = cardNumber.length;
+            var oddoeven = no_digit & 1;
+            var sum = 0;
+            for (var count = 0; count < no_digit; count++) {
+                var digit = parseInt(cardNumber.charAt(count));
+                if (!((count & 1) ^ oddoeven)) {
+                    digit *= 2;
+                    if (digit > 9) digit -= 9;
+                };
+                sum += digit;
+            };
+            if (sum == 0) return false;
+            if (sum % 10 == 0) return true;
+        };
+        return false;
+    }
+
+    function isLuhnNum(argvalue) {
+        argvalue = argvalue.toString();
+        if (argvalue.length == 0) {
+            return false;
+        }
+        for (var n = 0; n < argvalue.length; n++) {
+            if ((argvalue.substring(n, n+1) < "0") ||
+                (argvalue.substring(n,n+1) > "9")) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+
+   /*$RCSfile: validateEmail.js,v $ $Revision: 1.9 $ $Date: 2004/03/28 16:53:21 $ */
+    /**
+    * Check to see if fields are a valid email address.
+    * Fields are not checked if they are disabled.
+    * <p>
+    * @param form The form validation is taking place on.
+    */
+    function validateEmail(form) {
+        var bValid = true;
+        var focusField = null;
+        var i = 0;
+        var fields = new Array();
+        var formName = form.getAttributeNode("name");
+
+
+        oEmail = eval('new ' + formName.value + '_email()');
+
+        for (x in oEmail) {
+            var field = form[oEmail[x][0]];
+            if ((field.type == 'hidden' || 
+                 field.type == 'text' ||
+                 field.type == 'textarea') &&
+                (field.value.length > 0) &&
+                field.disabled == false) {
+                if (!checkEmail(field.value)) {
+                    if (i == 0) {
+                        focusField = field;
+                    }
+                    fields[i++] = oEmail[x][1];
+                    bValid = false;
+                }
+            }
+        }
+        if (fields.length > 0) {
+            focusField.focus();
+            alert(fields.join('\n'));
+        }
+        return bValid;
+    }
+
+    /**
+     * Reference: Sandeep V. Tamhankar (stamhankar@hotmail.com),
+     * http://javascript.internet.com
+     */
+    function checkEmail(emailStr) {
+       if (emailStr.length == 0) {
+           return true;
+       }
+       var emailPat=/^(.+)@(.+)$/;
+       var specialChars="\\(\\)<>@,;:\\\\\\\"\\.\\[\\]";
+       var validChars="\[^\\s" + specialChars + "\]";
+       var quotedUser="(\"[^\"]*\")";
+       var ipDomainPat=/^(\d{1,3})[.](\d{1,3})[.](\d{1,3})[.](\d{1,3})$/;
+       var atom=validChars + '+';
+       var word="(" + atom + "|" + quotedUser + ")";
+       var userPat=new RegExp("^" + word + "(\\." + word + ")*$");
+       var domainPat=new RegExp("^" + atom + "(\\." + atom + ")*$");
+       var matchArray=emailStr.match(emailPat);
+       if (matchArray == null) {
+           return false;
+       }
+       var user=matchArray[1];
+       var domain=matchArray[2];
+       if (user.match(userPat) == null) {
+           return false;
+       }
+       var IPArray = domain.match(ipDomainPat);
+       if (IPArray != null) {
+           for (var i = 1; i <= 4; i++) {
+              if (IPArray[i] > 255) {
+                 return false;
+              }
+           }
+           return true;
+       }
+       var domainArray=domain.match(domainPat);
+       if (domainArray == null) {
+           return false;
+       }
+       var atomPat=new RegExp(atom,"g");
+       var domArr=domain.match(atomPat);
+       var len=domArr.length;
+       if ((domArr[domArr.length-1].length < 2) ||
+           (domArr[domArr.length-1].length > 3)) {
+           return false;
+       }
+       if (len < 2) {
+           return false;
+       }
+       return true;
+    }
+
+  
+
+
+    /*$RCSfile: validateMask.js,v $ $Revision: 1.10 $ $Date: 2004/03/28 16:53:21 $ */
+    /**
+    * Check to see if fields are a valid using a regular expression.
+    * Fields are not checked if they are disabled.
+    * <p>
+    * @param form The form validation is taking place on.
+    */
+    function validateMask(form) {
+        var isValid = true;
+        var focusField = null;
+        var i = 0;
+        var fields = new Array();
+        var formName = form.getAttributeNode("name"); 
+
+        oMasked = eval('new ' + formName.value + '_mask()');      
+        for (x in oMasked) {
+            var field = form[oMasked[x][0]];
+
+            if ((field.type == 'hidden' ||
+                field.type == 'text' ||
+                 field.type == 'textarea' ||
+				 field.type == 'file') &&
+                 (field.value.length > 0) &&
+                 field.disabled == false) {
+
+                if (!matchPattern(field.value, oMasked[x][2]("mask"))) {
+                    if (i == 0) {
+                        focusField = field;
+                    }
+                    fields[i++] = oMasked[x][1];
+                    isValid = false;
+                }
+            }
+        }
+
+        if (fields.length > 0) {
+           focusField.focus();
+           alert(fields.join('\n'));
+        }
+        return isValid;
+    }
+
+    function matchPattern(value, mask) {
+       return mask.exec(value);
+    }
+
+
+//End --> 
+</script>
+
+
+
+<script type="text/javascript">
+function verifySpaceVin (okform){
+if (okform["jvin"].value.indexOf(" ")>-1) {
+alert ("VIN/VIS  beinhaltet ein/mehrere Leerzeichen");
+return false;
+}
+return true;
+}
+</script>
+
+<script type="text/javascript">
+var existsScriptPromo = false;
+</script>
+
+
+
+
+
+
+
+
+	<script type="text/javascript">
+	
+		//Renommage en console2 car sur certain navigateur on ne peut modifier "window.console".
+		var console2 = window.console;
+		//si la console n'existe pas on la crée pour eviter des erreurs
+		if (!console2) {
+			window.console = {
+				log: function(txt) {},
+				trace: function(txt){},
+				debug: function(txt){},
+				info: function(txt){},
+				warn: function(txt){},
+				error: function(txt){}
+			};
+		}
+	</script>
+
+	
+	<script type="text/javascript" src="/static/8.5.10/script/scripts-AP.js"></script>
+
+</head>
+<body id="bodyIdHub" onunload="closeLogout(event)" onload="return true">
+<input type="hidden" id="brandIdHub" value="OTHER">
+<input type="hidden" id="rrdiIdHub" value="020900G">
+
+<div id="scriptPromo" style="display:none;">
+</div>
+
+
+<div id="jbnpreLoad" style="visibility:hidden">
+<img alt="loading" src="/static/8.5.10/images/AP/spinner.gif">
+</div>
+<div id="expireSessionContainer" style="visibility:hidden">
+</div>
+<div id="page" class="expireSessionBodyOn">
+<!-- HUB -->
+<div id="hub" class="">
+<!-- Logo Marque -->
+<a href="#" class="logo">
+
+
+<img src="/static/8.5.10/images/AP/Logo_STELLANTIS_PandS_180_px_larg.png" alt="Peugeot">
+
+
+<!-- For JIRA SM1-PH1 -->
+
+</a>
+<!-- Titres CS/SB -->
+<h1 id="globalTitle">Service Box</h1>
+<h2 id="appTitle">
+
+
+<p>Dokumentation Peugeot</p>
+
+
+
+
+</h2>
+
+<div id="navMain">
+<dl id="sample" class="dropdown">
+<dt id="show" class="navBrand">
+
+
+
+
+<!-- Start SM1-PH1 OV integration -->
+
+<!-- End SM1-PH1 OV integration -->
+<!-- Start JIRA SM1-PH2 -->
+
+<!-- End JIRA SM1-PH2 -->
+
+<a href="#" class="otherBrandLib">Multi<br>marque<span class="value"></span></a>
+
+
+</dt>
+<dt hidden="true" id="hide">
+<a href="#"><span></span></a>
+</dt>
+
+<dd style="width: 72px;">
+<ul id="dwn">
+<li brand="AP"><a href="#" onclick="changeNavigationAP();"><img data-brand="AP" class="flag brandlogo" src="/static/8.5.10/images/AP/AP.jpg" alt=""><span class="value"></span></a></li>
+<li brand="AC"><a href="#" onclick="changeNavigationAC();"><img data-brand="AC" class="flag brandlogo" src="/static/8.5.10/images/AP/AC.jpg" alt=""><span class="value"></span></a></li>
+<li brand="DS"><a href="#" onclick="changeNavigationDS();" data-brand="DS"><img class="flag brandlogo" src="/static/8.5.10/images/AP/DS.jpg" alt="" data-brand="DS"><span class="value"></span></a></li>
+<!-- Start SM1-PH1 OV integration -->
+<li brand="OV">
+
+<a href="#" onclick="changeNavigationOV();" data-brand="OV"><img class="flag brandlogo" src="/static/8.5.10/images/Opel.png" alt="" data-brand="OV"><span class="value"></span></a>
+
+
+</li>
+<!-- End SM1-PH1 OV integration -->
+<!-- JBN-1366 CT country flag check -->
+
+
+<!-- Start JIRA SM1-PH2 -->
+<li brand="CT"><a href="#" onclick="changeNavigationCT();"><img data-brand="CT" class="flag brandlogo" src="/static/8.5.10/images/CT.png" alt=""><span class="value"></span></a></li>
+<!-- End JIRA SM1-PH2 -->
+
+
+
+<!-- JBN-1366 CT country flag check end -->
+<li brand="OTHER" style="margin-top:12px;" class="active"><a href="#" class="otherBrandLib" onclick="changeNavigationOTHER();" data-brand="OTHER">Multi<br>marque<span class="value"></span></a></li>
+</ul>
+</dd>
+
+
+</dl>
+</div>
+
+<!-- Menu Navigation -->
+<div id="tools">
+<ul id="menuTools">
+<li style="visibility: hidden"><a href="#" id="promotionsPR"></a></li>
+<!-- JBN-1846 SSO APPS : IZZY START -->
+
+<!-- JBN-1846 SSO APPS : IZZY END -->
+
+
+<li id="liPromotionsPRReel" onmouseover="onMouseOverPromotionPR(event);" onmouseout="onMouseOutPromotionPR(event);">
+<a style="cursor:pointer" id="promotionsPRReel">Aktionen</a>
+<ul id="sousMenuPromotion" class="sub" style="margin-top:-3px;">
+<li><a href="javascript:onClickMiseEnAvantPromotionnelle();">Mise en avant promotionnelle</a></li>
+
+<li><a href="javascript:goTo('/panier/mesPromotionsDuMoment.do?jbnContext=false')">Mes promotions du moment</a></li>
+
+</ul>
+</li>
+<li><a href="/socle/?start=true">Empfangsbildschirm</a></li>
+
+
+
+<li><a href="/do/aide?isShowBdo=false" target="_aide">Hilfe und Kontakt</a></li>
+
+
+<li><a href="/do/parametrer">Mein&nbsp;Profil</a></li>
+
+
+<li id="logoutButton"><a href="/do/logout">Verlassen</a></li>
+
+
+</ul>
+</div>
+<!-- commented as per PNB lot2 Favourite brand rule2 -->
+
+<!-- Onglets -->
+<div id="navigation">  <!-- #rootMenu -->
+<ul id="menu" class="parentmenus">
+
+
+<li class=" first">
+<a href="#">Annahme</a>
+<ul class="sub">
+
+
+
+
+
+
+
+
+<li><a href="javascript:goTo('/agenda/')">Agenda / My Organiser</a></li>
+
+
+
+
+
+
+<li><a href="javascript:goTo('/pdi/')"> </a></li>
+
+
+
+
+</ul>
+</li>
+
+
+
+<li class="highlight ">
+<a href="#">Dokumentation</a>
+<ul class="sub">
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<li><a href="javascript:goTo('/outillage/')">Spezialwerkzeug-Katalog</a></li>
+
+
+
+
+
+
+<li><a href="javascript:goTo('/docapvpr/$catvis/')">Katalog Schrauben, Befestigungen und Steckverbindungen</a></li>
+
+
+
+
+
+
+
+
+
+
+
+<li><a href="javascript:goTo('/docapvpr/$tyresCatlog/')">Reifenkatalog NEW</a></li>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<li><a href="javascript:goTo('/eper/')">E-PER Parts Catalogue</a></li>
+
+
+
+
+
+
+
+
+
+
+
+<li><a href="javascript:goTo('/ppp/')">Katalog Profi-Produkte</a></li>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<li><a href="javascript:goTo('/docapvpr/$cpre/')"><font face="Arial Rounded MT Bold" color="#21d081">RE</font>USE 
+Wiederverwendbare Teile</a></li>
+
+
+
+
+
+
+<li><a href="javascript:goTo('/docapvpr/$pe/')"><font face="Arial Rounded MT Bold" color="#21d081">RE</font>PAIR Reparatur elektronische Teile</a></li>
+
+
+
+
+
+
+<li><a href="javascript:goTo('/docapvpr/$boitesAutomatiques/')"><font face="Arial Rounded MT Bold" color="#21d081">RE</font>PAIR Reparatur des Automatik-Getriebes</a></li>
+
+
+
+
+
+
+<li><a href="javascript:goTo('/docapvpr/$audiotelematique/')">Multimarken Zubehör</a></li>
+
+
+
+
+
+
+<li><a href="javascript:goTo('/docapvpr/$cmm/')">Service BOX Multi-Brand</a></li>
+
+
+
+
+</ul>
+</li>
+
+
+
+<li class=" ">
+<a href="#" style="color: rgb(211, 211, 211); cursor: not-allowed;">Technische Unterstützung</a>
+<ul class="sub">
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</ul>
+</li>
+
+
+
+<li class=" ">
+<a href="#" style="color: rgb(211, 211, 211); cursor: not-allowed;">GARANTIE - SERVICE-VERTRÄGE</a>
+<ul class="sub">
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</ul>
+</li>
+
+
+
+<li class=" ">
+<a href="#">Verwaltung</a>
+<ul class="sub">
+
+
+
+<li><a href="javascript:goTo('/panier/')">Warenkorb</a></li>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<li><a href="javascript:goTo('/wicheck/')">wiCHECK (For Quality Inspections)</a></li>
+
+
+
+
+
+
+<li><a href="javascript:goTo('/brr/')">Mein Händlerbetrieb</a></li>
+
+
+
+
+
+
+<li><a href="javascript:goTo('/videocheck/')">VideoCheck</a></li>
+
+
+
+
+</ul>
+</li>
+
+
+
+<li class=" ">
+<a href="#" style="color: rgb(211, 211, 211); cursor: not-allowed;">Organisation</a>
+<ul class="sub">
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</ul>
+</li>
+
+
+</ul>
+</div>
+<!-- Fin onglets -->
+<!-- Barre VIN -->
+
+<div id="location" class="appIcons "> <!-- .location_bar -->
+
+<!-- Boutons plier/deplier -->
+<div class="search" rechercheparimmatenabled="false">
+<form name="vehicule" method="post" action="/do/ok" class="row" onsubmit="return verifySpaceVin(this) &amp;&amp; validateVehicule(this) &amp;&amp; splitJvin(this);" id="f1">
+
+<!-- changed the input type from text to search for chrome issue to fix SBCHROME-11 ALM-937 CAP-13736 -->
+<input type="search" id="short-vin" name="shortvin" class="text" value="VIN/VIS" onclick="if(this.value=='VIN/VIS'){this.value=''};" onblur="if(this.value.length &lt; 2){this.value='VIN/VIS'};">
+<input type="image" name="VIN_OK_BUTTON" onclick="return copyVIN(this)" src="/static/8.5.10/images/bt-location-search-submit.gif" class="submit">
+
+
+<script type="text/javascript">
+/* SBCHROME-11 ALM-937 CAP-13736 to fix chrome issue */
+addUserAgentClassToVinSearchBox();
+</script>
+
+<div id="formDeploy" class="formDeploy">
+<ol>
+<li>
+<label for="vin">VIN / VIS</label>
+
+<input type="text" name="jvin" maxlength="17" size="22" value="INVALID12345" id="vin">
+
+
+<input type="hidden" name="wmi" value="">
+<input type="hidden" name="vds" value="">
+<input type="hidden" name="vis" value="INVALID12345">
+
+
+<input type="hidden" name="rechImmat" value="false">
+
+</li>
+<li>
+<label for="immatriculation">Immatriculation du vehicule</label>
+<input type="text" id="immatriculation">
+</li>
+</ol>
+<p>
+<input type="submit" value="Rechercher" style="padding:5px;">
+</p>
+</div>
+<script type="text/javascript">
+
+<!--//
+
+
+var vinValue = 'INVALID12345';
+
+var fullvininput = document.getElementById('vin');
+document.getElementById('short-vin').value = vinValue;
+if (fullvininput.disabled && fullvininput.disabled != "false") document.getElementById('short-vin').disabled = fullvininput.disabled;
+if (fullvininput.readonly && fullvininput.readonly != "false") document.getElementById('short-vin').readonly = fullvininput.readonly;
+//-->
+</script>
+</form>
+</div>
+<!-- Infos APV -->
+<a href="#" id="infosAPVClip" onclick="javascript:return false;" rechercheparimmatenabled="false" title="">
+<p class="info" id="infosAPV">
+&nbsp;
+
+<span class="infosBandeau infoMarque">
+
+</span>
+
+<span id="infosVehicule">
+
+</span>
+
+&nbsp;
+&nbsp;
+&nbsp;
+&nbsp;
+</p>
+</a>
+<!-- Start CAP-19689 TS5A for changing book icon url -->
+
+<!-- Start CAP-19689 TS5A -->
+<!-- pictos -->
+<ul class="appIcons" id="hub-icons">
+
+<li class="bam-icons" id="ico-hub-bam-green" style="display: none;"><a href="#"><img src="/static/8.5.10/images/bam-green-icon.jpg" title=""></a></li> 
+<li class="bam-icons" id="ico-hub-bam-orange" style="display: none;"><a href="javascript:goTo('/sams/')"><img src="/static/8.5.10/images/bam-orange-icon.jpg" title=""></a></li> 
+<li class="bam-icons" id="ico-hub-bam-grey" style="display: none;"><a href="#"><img src="/static/8.5.10/images/bam-grey-icon.jpg" title=""></a></li> 
+
+<li class="vs-icon" id="ico-hub-vehicle-search" style="display: none;"><a href="javascript:goTo('/pamirda/?vsSrc=true')"><img src="/static/8.5.10/images/loupe_clignotante.gif" title=""></a></li> 
+
+<li class="dmbr-icons" id="ico-hub-dmbr-green" style="display: none;"><a href="javascript:goTo('/dimboStats/')"><img src="/static/8.5.10/images/dmbr-green-icon.png" title=""></a></li> 
+<li class="dmbr-icons" id="ico-hub-dmbr-orange" style="display: none;"><a href="javascript:goTo('/dimboSams/')"><img src="/static/8.5.10/images/dmbr-orange-icon.png" title=""></a></li> 
+<li class="dmbr-icons" id="ico-hub-dmbr-grey" style="display: none;"><a href="#"><img src="/static/8.5.10/images/dmbr-grey-icon.png" title=""></a></li> 
+ <!--CAP-21336 DIMBO -->
+<!-- CAP-35429 JBN-1763 START -->
+<li class="stellaCare-icons" id="ico-hub-stellaCare-grey" style="display: none;"><a href="#"><img src="/static/8.5.10/images/stellaCare-gray-icon.png" title="STELLA_CARE_GRAY_INELIGIBLE_COUNTRY"></a></li> 
+<li class="stellaCare-icons" id="ico-hub-stellaCare-green" style="display: none;"><a href="javascript:goTo('/stellaCare/')"><img src="/static/8.5.10/images/stellaCare-green-icon.png" title="STELLA_CARE_CITROEN_GREEN"></a></li> 
+ <!-- CAP-37495,JBN-1873, CAP-37622 : STELLA / BRAND - CARE INTEGRATION -->
+<li id="ico-synthese"><a href="javascript:goTo('/panier/ecranSynthese.do?jbnContext=false')"><img src="/static/8.5.10/images/AP/bg-message_small.gif" title="Startseite Warenkorb"></a></li> 
+<li><a href="javascript:goTo('/panier/')"><img src="/static/8.5.10/images/AP/icon-panier-small.jpg" title="Klicken Sie hier, um auf den Warenkorb zuzugreifen."></a></li> 
+<li id="ico-crm-hub" style="display: none;"><span><a href="javascript:goTo('/')"><img src="/static/8.5.10/images/AP/../ico-crm.png" title="message inconnu"></a></span></li> 
+
+<script type="text/javascript">
+(function($){
+
+<!-- SM1-PH1 OV integration -->
+$("#ico-crm-hub").hide();
+
+
+
+
+$("#ico-doc-ac").hide();
+
+
+$("#ico-doc-ap").hide();
+
+$(".bam-icons").hide();
+$(".vs-icon").hide(); //JBN-1311 VS Icon
+$(".dmbr-icons").hide(); //CAP-21336 DIMBO
+$(".stellaCare-icons").hide(); // CAP-37495,JBN-1873, CAP-37622 : STELLA / BRAND - CARE INTEGRATION Icons
+})(jQueryJBN);
+</script>
+
+</ul>
+</div>
+</div>
+<form class="row" id="frmMenu1" name="frmMenu1" method="post" action="#">
+<input name="tabControlID" value="" type="hidden">
+<input name="jbnContext" value="true" type="hidden">
+</form>
+<!-- END HUB -->
+<br>
+
+<div id="hubAlerts">
+
+<p class="alert">message inconnu</p>
+
+</div>
+
+
+<!-- JBN-1652 -->
+
+
+
+
+
+
+
+<div id="global" class=" patched layoutSimple">
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<link rel="stylesheet" type="text/css" href="charte/themes/AP/bouton.css">
+<script type="text/javascript" src="charte/script/AP/iePatch.js" language="javascript"></script>
+<meta http-equiv="content-type" content="text/html; charset=iso-8859-1">
+<meta http-equiv="Content-Style-Type" content="text/css; charset=UTF-8">
+<title>Citroën Service Portal - Technische Dokumentation - FDZ-ERREUR_ACCES_NON_AUTORISE</title>
+<script>
+function showTab(OBJ,ID){
+var lisTab = new Array();
+lisTab[0] = new Array('tb1');
+
+}
+function reconnect()
+{
+if(self.name != 'principaleAP')
+{
+if(opener)
+{
+opener.location="login.do";
+this.close();
+}
+else
+parent.location="login.do";
+}
+else
+{
+parent.location="login.do";
+}
+setTimeout("document.taskFrm.submit()" , 4000);
+}
+</script>
+<style type="text/css">
+.regroupement {
+border-style:solid;
+border-width:1px;
+border-color:#9C9A9C;
+padding:5px 3px 5px 3px;
+}
+.fondCouleurAC {
+background-color:#FFFFFF;
+border:1px solid rgb(0,118,168);
+border-collapse:separate;
+margin-bottom:10px;
+padding-bottom:0;
+width:90%;
+}
+.fondCouleurAP {
+background-color:#FFFFFF;
+border:1px solid rgb(0,118,168);
+border-collapse:separate;
+margin-bottom:10px;
+padding-bottom:0;
+width:90%;
+}
+</style>
+
+
+
+<table width="100%" height="100%" cellpadding="0" cellspacing="0" border="0">
+<tbody><tr>
+<td>
+
+<table width="95%" height="95%" border="0" cellpadding="0" cellspacing="0" class="fondCouleurAP regroupement" align="center">
+
+<tbody><tr>
+<td>
+
+<table width="40%" cellpadding="0" cellspacing="0" border="0" align="center">
+<tbody><tr>
+<td align="center">
+<table width="100%" height="100%" border="0" cellpadding="5" cellspacing="0" align="center">
+<tbody><tr>
+<td align="center" class="text">Vous n'êtes pas autorisé à accéder à cette ressource</td>
+</tr>
+<tr><td class="text">&nbsp;</td></tr>
+<tr>
+<td align="center" class="text">You are not authorised to view this page.</td>
+</tr>
+<tr><td class="text">&nbsp;</td></tr>
+<tr>
+<td align="center" class="text">No está autorizado a visualizar esta página.</td>
+</tr>
+<tr><td class="text">&nbsp;</td></tr>
+<tr>
+<td align="center" class="text">Der Zugriff auf die angeforderte Datei wird verweigert</td>
+</tr>
+<tr><td class="text">&nbsp;</td></tr>
+<tr>
+<td align="center" class="text">您没有�?�利进入该资�?</td>
+</tr>
+</tbody></table>
+</td>
+</tr>
+</tbody></table>
+
+</td>
+</tr>
+</tbody></table>
+</td></tr>
+</tbody></table>
+<br>
+<br>
+<br>
+<br>
+
+<form name="taskFrm"></form>
+
+
+
+
+
+<script type="text/javascript"></script>
+<script type="text/javascript">var taskFrm = taskFrm || document.taskFrm;</script>
+</div>
+<div class="spacer"><!--  --></div>
+<div id="footer">
+<p>
+
+
+8.5.10
+
+</p>
+</div>
+
+
+<script type="text/javascript">
+<!--//
+Hub.init(); 
+
+Hub.redirections = new Array();
+Hub.toApplication = function(application, action) {
+		var appRoot = Hub.redirections[application] || application;
+		var url = '/' + appRoot + '/' + action;
+		document.location = url;
+	};
+
+//-->
+</script>
+<script type="text/javascript">
+<!--//
+function closeLogout (event)
+{   var wName='';
+if ( wName.length>3 && wName.substr(0,3) =='jbn' && window.name==wName)
+{if (window.event) {event = window.event;}//pour ie
+var iX = window.document.body.offsetWidth - event.clientX ;var iY = event.clientY ;
+if ((iX <=30 && iY < 0)){HTTPGet("/do/logout",function (){},null);}}}
+//-->
+</script>
+<script type="text/javascript">
+<!--// Script utilise uniquement pour le bandeau -->
+<!--//
+function verifySpaceVin (okform){
+if (okform["jvin"].value.indexOf(" ")>-1) {
+alert ("VIN/VIS  beinhaltet ein/mehrere Leerzeichen");
+return false;
+}
+return true;}
+function waitJbnPreloadPageAffiche()
+{ //DOM
+if (document.getElementById){preload = document.getElementById('jbnpreLoad');preload.style.visibility='visible';preload.innerHTML = "<img alt='_' src='/static/8.5.10/images/AP/spinner.gif'>"; }
+else{if (document.layers){document.jbnpreLoad.visibility = 'visible';}else {document.all.jbnpreLoad.style.visibility = 'visible';}}
+setTimeout('onTimeOut()',59000);
+}
+function onTimeOut(){goTo("/",0);}
+initExpireSession("Die Verbindung wird beendet in","Klicken Sie hier, um sie wieder zu aktivieren","Ihre Verbindung wurde beendet","Klicken Sie hier, um zum Empfang zurückzukommen","AP");
+function shortcutVIN(e) {
+var code = 0;
+e = e || window.event;
+if (e.keyCode) code = e.keyCode;
+else if (e.which) code = e.which;
+if (code == 113) document.vehicule.jvin.focus();
+}
+// End -->
+</script>
+<script type="text/javascript">
+users="DP92228 - Winter Alois";
+
+user2="020900G";
+users=user2+" - "+users;
+
+setTitle(document,users);
+</script>
+
+</div> <!--  /#page -->
+
+
+<script type="text/javascript" src="/static/8.5.10/script/scripts-patch.js"></script>
+
+<script type="text/javascript">
+// FIX
+// pour la taille des cellules dans l'agenda
+function fixPlanning() {
+var planningDivId = 'planning',
+planningTableClass = 'planningCalendarDetail';
+var planning = document.getElementById(planningDivId);
+if (planning != null && typeof planning != 'undefined') {
+var tables = planning.getElementsByTagName('table');
+var table;
+if (tables != null) {
+for(i=0 ; i < tables.length ; i++) {
+if(tables[i].className == planningTableClass) {
+table = tables[i];
+break;
+}
+}
+}
+if (table != null && typeof table != 'undefined') {
+var tds = table.getElementsByTagName('td');
+var width = 0;
+if (tds != null)
+for(i=0 ; i < tds.length ; i++) {
+if (tds[i].childNodes.length > 0) {
+if (typeof tds[i].childNodes[0].tagName != 'undefined') {
+if (width == 0) {
+width = tds[i].offsetWidth;
+}
+tds[i].style.width = width;
+}
+}
+}
+}
+}
+}
+fixPlanning();
+</script>
+
+
+<!-- <script src="http://ajax.googleapis.com/ajax/libs/jquery/1.3.2/jquery.min.js" type="text/javascript"></script> -->
+<script type="text/javascript">
+var pwk_etablissement = "";
+var pwk_direction = "null";
+var pwk_pays = "AT";
+var pwk_utilisateur = "DP92228";
+if (hubMarque=='AP') {
+var site_pwk_id = 64;
+} else  if (hubMarque=='AC') {
+var site_pwk_id = 63;
+} else  if (hubMarque=='DS') {
+var site_pwk_id = 85;
+}
+jQueryJBN(".dropdown img.flag").addClass("flagvisibility");
+jQueryJBN(".brandlogo").parent().parent().click(function(){
+jQueryJBN('#dwn li').removeClass("active");
+jQueryJBN(this).addClass("active");
+});
+jQueryJBN(".dropdown dt a").click(function(e) {
+jQueryJBN("#dwn").find("li").each(function(){
+jQueryJBN("#dwn").find("li").css("display","block");
+})
+if(jQueryJBN("#dwn").find("li").hasClass("active"))
+jQueryJBN("#dwn").find(".active").css("display","none");
+jQueryJBN(".dropdown dd ul").toggle();
+});
+jQueryJBN(".dropdown dd ul li a").click(function() {
+var text = jQueryJBN(this).html();
+jQueryJBN(".dropdown dt a span").html(text);
+var src= jQueryJBN(".dropdown dt a > img").attr("src", jQueryJBN(this).find("img").attr("src"));
+if(!(text=="/static/8.5.10/images/AP/DS_Logo_reversed_RGB.gif")||!(text=="/static/8.5.10/images/AP/Logo_CITROEN_Bloc_Marque_2016_RGB.gif")){
+jQueryJBN("#show").hide();
+jQueryJBN("#hide").show();
+}
+jQueryJBN(".dropdown dd ul").hide();
+jQueryJBN("#result").html("Selected value is: " + getSelectedValue("sample"));
+});
+function getSelectedValue(id) {
+return jQueryJBN("#" + id).find("dt a span.value").html();
+}
+jQueryJBN(document).bind('click', function(e) {
+var clicked = jQueryJBN(e.target);
+if (!clicked.parents().hasClass("dropdown"))
+jQueryJBN(".dropdown dd ul").hide();
+});
+jQueryJBN(".dropdown img.flag").toggleClass("flagvisibility");
+jQueryJBN(".dropdownFavBrand img.flag").addClass("flagvisibilityFavBrand");
+jQueryJBN(".favBrandlogo").parent().parent().click(function(){
+jQueryJBN('#dwn li').removeClass("active");
+jQueryJBN(this).addClass("active");
+});
+jQueryJBN(".brandlogo").parent().parent().click(function(){
+jQueryJBN('#dwn li').removeClass("active");
+jQueryJBN(this).addClass("active");
+});
+jQueryJBN(".dropdownFavBrand dt a").click(function(e) {
+jQueryJBN("#dwn").find("li").each(function(){
+jQueryJBN("#dwn").find("li").css("display","block");
+})
+if(jQueryJBN("#dwn").find("li").hasClass("active"))
+jQueryJBN("#dwn").find(".active").css("display","none");
+jQueryJBN(".dropdownFavBrand dd ul").toggle();
+});
+jQueryJBN(".dropdownFavBrand dd ul li a").click(function() {
+//debugger;
+var textFavBrand = jQueryJBN(".dropdownFavBrand dt a").html();
+var textFavBrand2 = jQueryJBN(this).html();
+jQueryJBN(".dropdownFavBrand dt a span").empty();
+/* jQueryJBN(".dropdownFavBrand dt a span").empty();
+jQueryJBN(".dropdownFavBrand dd ul li a span").empty();
+jQueryJBN(".dropdownFavBrand dd a span").html(textFavBrand); */
+jQueryJBN(".dropdownFavBrand dt a span").html(textFavBrand2);
+var srcFavBrand= jQueryJBN(".dropdownFavBrand dd a > img.favBrandlogo").attr("src", jQueryJBN(".dropdownFavBrand dt a").find("img").attr("src"));
+var srcFavBrand2= jQueryJBN(".dropdownFavBrand dt a > img.favBrandlogo").attr("src", jQueryJBN(this).find("img").attr("src"));
+if(!(textFavBrand2=="/static/8.5.10/images/AP/DS_Logo_reversed_RGB.gif")||!(textFavBrand2=="/static/8.5.10/images/AP/Logo_CITROEN_Bloc_Marque_2016_RGB.gif")){
+jQueryJBN("#showFavBrand").hide();
+jQueryJBN("#hideFavBrand").show();
+}
+jQueryJBN(".dropdownFavBrand dd ul").hide();
+//jQueryJBN("#result").html("Selected value is: " + getSelectedValueFavBrand("sampleFavBrand"));
+});
+/* function getSelectedValueFavBrand(id) {
+return jQueryJBN("#" + id).find("dt a span.value").html();
+} */
+jQueryJBN(document).bind('click', function(e) {
+var clicked = jQueryJBN(e.target);
+if (!clicked.parents().hasClass("dropdownFavBrand"))
+jQueryJBN(".dropdownFavBrand dd ul").hide();
+});
+jQueryJBN(".dropdownFavBrand img.flag").toggleClass("flagvisibilityFavBrand");
+jQueryJBN("#activeAP").click(function() {
+var favBrand = "AP";
+jQueryJBN("#favBrand").val(favBrand);
+self.location="/do/parametrer?favBrand="+favBrand;
+});
+jQueryJBN("#activeAC").click(function() {
+var favBrand = "AC";
+jQueryJBN("#favBrand").val(favBrand);
+self.location="/do/parametrer?favBrand="+favBrand;
+});
+jQueryJBN("#activeDS").click(function() {
+var favBrand = "DS";
+jQueryJBN("#favBrand").val(favBrand);
+self.location="/do/parametrer?favBrand="+favBrand;
+});
+jQueryJBN("#activeOV").click(function() {
+var favBrand = "OV";
+jQueryJBN("#favBrand").val(favBrand);
+self.location="/do/parametrer?favBrand="+favBrand;
+});
+//JIRA SM1-PH2
+jQueryJBN("#activeCT").click(function() {
+var favBrand = "CT";
+jQueryJBN("#favBrand").val(favBrand);
+self.location="/do/parametrer?favBrand="+favBrand;
+});
+jQueryJBN(".parentmenus > li").each(function(i, val){
+if (jQueryJBN(this).find(".sub li").length <= 0) {
+jQueryJBN(this).find("a").css("color", "#D3D3D3").css("cursor","not-allowed");
+}
+});
+if (hubMarque =='DS') {
+jQueryJBN(".parentmenus > li").each(function(i, val){
+if (jQueryJBN(this).find(".sub li").length == 0) {
+jQueryJBN(this).hide();
+}
+});
+}
+jQueryJBN("#logoutButton").click(function(){
+var response=jQueryJBN.removeItem("pSite");
+if (response==1){
+console.log("Data Successfully Removed from SessionStorage");
+jQueryJBN.removeItem("endosePDV");
+window.localStorage.setItem("dossierIdCallback", "");
+}
+});
+</script>
+<script>
+function changeNavigationVIN(brand) {
+if(brand== "AP") {
+if(jQueryJBN("#dwn").find("li").hasClass("active"))
+jQueryJBN("#dwn").find(".active").css("display","none");
+jQueryJBN(".dropdown dd ul li:nth-child(1)").addClass("active");
+jQueryJBN(".dropdown dt a > img").attr("src", "/static/8.5.10/images/AP/AP.jpg");
+}
+if(brand== "AC") {
+if(jQueryJBN("#dwn").find("li").hasClass("active"))
+jQueryJBN("#dwn").find(".active").css("display","none");
+jQueryJBN(".dropdown dd ul li:nth-child(2)").addClass("active");
+jQueryJBN(".dropdown dt a > img").attr("src", "/static/8.5.10/images/AP/AC.jpg");
+}
+if(brand== "DS") {
+if(jQueryJBN("#dwn").find("li").hasClass("active"))
+jQueryJBN("#dwn").find(".active").css("display","none");
+jQueryJBN(".dropdown dd ul li:nth-child(3)").addClass("active");
+jQueryJBN(".dropdown dt a > img").attr("src", "/static/8.5.10/images/AP/DS.jpg");
+}
+}
+</script>
+
+
+
+<div id="pboxOverlay" style="display: none;"></div><div id="promobox" class=""><div id="pboxWrapper"><div><div id="pboxTopLeft" style="float: left;"></div><div id="pboxTopCenter" style="float: left;"></div><div id="pboxTopRight" style="float: left;"></div></div><div style="clear: left;"><div id="pboxMiddleLeft" style="float: left;"></div><div id="pboxContent" style="float: left;"><div id="pboxLoadedContent" style="width: 0px; height: 0px; overflow: hidden; float: left;"></div><div id="pboxLoadingOverlay" style="float: left;"></div><div id="pboxLoadingGraphic" style="float: left;"></div><div id="pboxTitle" style="float: left;"></div><div id="pboxCurrent" style="float: left;"></div><div id="pboxNext" style="float: left;"></div><div id="pboxPrevious" style="float: left;"></div><div id="pboxSlideshow" style="float: left;"></div><div id="pboxClose" style="float: left;"></div></div><div id="pboxMiddleRight" style="float: left;"></div></div><div style="clear: left;"><div id="pboxBottomLeft" style="float: left;"></div><div id="pboxBottomCenter" style="float: left;"></div><div id="pboxBottomRight" style="float: left;"></div></div></div><div style="position: absolute; width: 9999px; visibility: hidden; display: none;"></div></div></body></html>

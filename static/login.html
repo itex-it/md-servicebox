@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ServiceBox Login</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #1a1a1a;
+            color: #e0e0e0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+        }
+
+        .login-card {
+            background-color: #2d2d2d;
+            padding: 2rem;
+            border-radius: 8px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5);
+            width: 300px;
+            text-align: center;
+        }
+
+        h2 {
+            margin-top: 0;
+            color: #4CAF50;
+        }
+
+        input {
+            width: 100%;
+            padding: 10px;
+            margin: 10px 0;
+            background: #3d3d3d;
+            border: 1px solid #4d4d4d;
+            color: white;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+
+        button {
+            width: 100%;
+            padding: 10px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+
+        button:hover {
+            background-color: #45a049;
+        }
+
+        .error {
+            color: #ff5252;
+            margin-top: 10px;
+            font-size: 0.9rem;
+            display: none;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="login-card">
+        <h2>ServiceBox API</h2>
+        <p>Enter Auth Token</p>
+        <input type="password" id="tokenInput" placeholder="Secret Token from config.json">
+        <button onclick="login()">Login</button>
+        <p class="error" id="errorMsg">Invalid Token</p>
+    </div>
+
+    <script>
+        async function login() {
+            const token = document.getElementById('tokenInput').value;
+            const errorMsg = document.getElementById('errorMsg');
+
+            // Simple validation call
+            try {
+                const res = await fetch('/api/stats', {
+                    headers: { 'X-Auth-Token': token }
+                });
+
+                if (res.ok) {
+                    localStorage.setItem('sb_token', token);
+                    window.location.href = '/static/dashboard.html';
+                } else {
+                    errorMsg.style.display = 'block';
+                }
+            } catch (e) {
+                errorMsg.innerText = "Connection Error";
+                errorMsg.style.display = 'block';
+            }
+        }
+
+        // Auto-redirect if already logged in
+        if (localStorage.getItem('sb_token')) {
+            // Optional: Validate token before redirecting? 
+            // For now, just let dashboard handle 401s
+            window.location.href = '/static/dashboard.html';
+        }
+    </script>
+</body>
+
+</html>

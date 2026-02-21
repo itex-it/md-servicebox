@@ -1,0 +1,11 @@
+{
+    "user_id": "DP92228",
+    "password": "Win2026D",
+    "login_url": "https://servicebox.peugeot.com/",
+    "headless": true,
+    "log_level": "INFO",
+    "output_dir": "downloads",
+    "timeout_seconds": 30000,
+    "short_timeout_seconds": 5000,
+    "auth_token": "SECRET_TOKEN_123"
+}
