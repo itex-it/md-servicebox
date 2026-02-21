@@ -128,8 +128,10 @@ class JobManager:
                             file_path,
                             result.get('vehicle_data', {})
                         )
+                        database.update_job_status(job['job_id'], 'success', result)
                     except Exception as e:
                         logger.error(f"Failed to save history for job {job['job_id']}: {e}")
+                        database.update_job_status(job['job_id'], 'error', error_message=str(e))
 
                     self.consecutive_requests += 1
                     self.consecutive_errors = 0 # Reset error count
@@ -178,17 +180,12 @@ class JobManager:
         return count
 
     def clear_queue(self):
-        # Clear SQL
-        import sqlite3
-        conn = sqlite3.connect(database.DB_FILE)
-        c = conn.cursor()
-        c.execute("DELETE FROM jobs WHERE status = 'queued'")
-        count = c.rowcount
-        conn.commit()
-        conn.close()
+        # Clear Database
+        count = database.clear_queue(['queued', 'processing', 'error'])
         
         # Clear Redis
-        queue_manager.clear_queue()
+        if queue_manager.enabled:
+            queue_manager.clear_queue()
         return count
 
     def get_all_jobs(self, status=None, vin=None, limit=50):

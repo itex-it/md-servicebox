@@ -185,6 +185,15 @@ def reset_job(job_id):
             return 1
         return 0
 
+def clear_queue(status_list=None):
+    with SessionLocal() as db:
+        query = db.query(Job)
+        if status_list:
+            query = query.filter(Job.status.in_(status_list))
+        count = query.delete(synchronize_session=False)
+        db.commit()
+        return count
+
 def get_history(vin=None, search_term=None, limit=100):
     with SessionLocal() as db:
         query = db.query(VehicleHistory)
