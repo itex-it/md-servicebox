@@ -1,28 +1,12 @@
-# Verwenden eines offiziellen Python-Images als Basis
-FROM python:3.10-slim
+# Verwenden des offiziellen Playwright-Images (beinhaltet Python 3.10 und alle System-Abhaengigkeiten für Chromium)
+FROM mcr.microsoft.com/playwright/python:v1.41.0-jammy
 
-# Umgebungsvariablen für Python einrichten (kein Puffer, keine Bytecode-Dateien)
+# Umgebungsvariablen für Python einrichten
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
 
 # Arbeitsverzeichnis im Container festlegen
 WORKDIR /app
-
-# Erforderliche Systempakete für Playwright und dessen Abhängigkeiten installieren
-RUN apt-get update && apt-get install -y \
-    wget \
-    gnupg \
-    libgconf-2-4 \
-    libatk1.0-0 \
-    libatk-bridge2.0-0 \
-    libgdk-pixbuf2.0-0 \
-    libgtk-3-0 \
-    libgbm-dev \
-    libnss3-dev \
-    libxss-dev \
-    fonts-liberation \
-    libasound2 \
-    && rm -rf /var/lib/apt/lists/*
 
 # Requirements in den Container kopieren
 COPY requirements.txt .
@@ -30,9 +14,10 @@ COPY requirements.txt .
 # Python-Abhängigkeiten installieren
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Playwright Browser (Chromium) und dessen OS-Abhängigkeiten installieren
+# (Optional falls Playwright-Browser nachgeladen werden muss, aber das Image hat sie meist schon)
 RUN playwright install chromium
-RUN playwright install-deps chromium
+
+# Wir müssen hier kein apt-get mehr ausführen!
 
 # Den restlichen Quellcode in das Verzeichnis kopieren
 COPY . .
