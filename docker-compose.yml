@@ -25,6 +25,7 @@ services:
       # Optional: Hier koennen Config-Werte ueberschrieben werden.
       - REDIS_URL=redis://redis:6379/0
       - DB_CONNECTION=sqlite:////app/data/servicebox_history.db
+      - TZ=Europe/Vienna
 
   redis:
     image: redis:alpine
