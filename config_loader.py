@@ -24,7 +24,15 @@ def load_config():
         }
     
     with open(CONFIG_FILE, 'r') as f:
-        return json.load(f)
+        config_data = json.load(f)
+        
+    # Docker / Environment Variable Overrides
+    if os.getenv("REDIS_URL"):
+        config_data["redis_url"] = os.getenv("REDIS_URL")
+    if os.getenv("DB_CONNECTION"):
+        config_data["db_connection"] = os.getenv("DB_CONNECTION")
+        
+    return config_data
 
 def setup_logging(level_name="INFO"):
     """Configures logging to both console and file with rotation."""

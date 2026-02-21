@@ -1,0 +1,46 @@
+version: '3.8'
+
+services:
+  servicebox-app:
+    build: .
+    container_name: servicebox-app
+    restart: always # Restarts automatically on failure or massive timeout crashes
+    ports:
+      - "8005:8005"
+    depends_on:
+      - redis
+    networks:
+      - default
+      - caddy
+    labels:
+      caddy: servicebox.autoleeb.at
+      caddy.reverse_proxy: "{{upstreams 8005}}"
+    volumes:
+      # Wir speichern die lokale SQLite Datenbank ausserhalb des Containers, 
+      # damit diese bei Neustarts oder Updates nicht geloescht wird.
+      - ./servicebox_history.db:/app/servicebox_history.db
+      - ./config.json:/app/config.json
+      - ./downloads:/app/downloads
+      - ./debug:/app/debug
+      - ./servicebox.log:/app/servicebox.log
+    environment:
+      # Optional: Hier koennen Config-Werte ueberschrieben werden.
+      - REDIS_URL=redis://redis:6379/0
+
+  redis:
+    image: redis:alpine
+    container_name: servicebox-redis
+    restart: always
+    networks:
+      - default
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes
+
+networks:
+  default:
+  caddy:
+    external: true
+
+volumes:
+  redis_data:

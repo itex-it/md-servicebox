@@ -223,6 +223,9 @@ class ServiceBoxDownloader:
                 }
             )
             
+            # Start Playwright Tracing for Docker Debugging
+            await context.tracing.start(screenshots=True, snapshots=True, sources=True)
+            
             try:
                 page = await context.new_page()
                 
@@ -547,6 +550,21 @@ class ServiceBoxDownloader:
                 import traceback
                 traceback.print_exc()
                 result["message"] = f"Automation error: {str(e)}"
+                
+                # Save trace on failure
+                try:
+                    trace_filename = f"trace_{vin}_{int(time.time())}.zip"
+                    # In docker, we'll map /app/debug to ./debug
+                    trace_dir = os.path.join(os.getcwd(), "debug")
+                    if not os.path.exists(trace_dir):
+                        os.makedirs(trace_dir, exist_ok=True)
+                    
+                    trace_path = os.path.join(trace_dir, trace_filename)
+                    await context.tracing.stop(path=trace_path)
+                    logger.error(f"Saved failure trace to {trace_path}")
+                except Exception as trace_e:
+                    logger.error(f"Could not save trace: {trace_e}")
+                    
             finally:
                 await browser.close()
                 end_time = time.time()

@@ -99,3 +99,50 @@ python db_manager.py clear --target history
 # Alles unwiderruflich leeren:
 python db_manager.py clear --target all
 ```
+
+---
+
+## 🐋 Enterprise Deployment (Docker)
+
+Für maximale Stabilität bei 50.000+ Fahrzeugen pro Jahr empfehlen wir das vollständige Docker-Setup. Es kapselt die API, den Scraper und den Redis In-Memory-Cache komplett vom Windows Host-System ab.
+
+**Voraussetzung:** Docker Desktop installiert.
+
+### 1. Starten
+Wechsle ins Verzeichnis und starte die Orchestrierung:
+```cmd
+docker compose up -d --build
+```
+
+### 2. Status Prüfen
+Um zu sehen, wie der Worker im Hintergrund arbeitet (oder ob Fehler auftreten):
+```cmd
+docker compose logs -f servicebox-app
+```
+
+### 3. Was passiert unter der Haube?
+- **servicebox-app**: Der Python-Container. Nimmt unter Port `8005` API-Anfragen entgegen und hat den Playwright-Scraper installiert. Wenn Scrapes angestoßen werden, schickt er den "Job" blitzschnell an Redis. Ein asynchroner Worker zieht sich den Job und rattert ihn ab.
+- **redis**: Ein winziger, rasend schneller In-Memory Zwischenspeicher. Nimmt die API-Anfragen an und leitet sie in Echtzeit an die Scraper-Worker weiter (`BLPOP`).
+
+Die Datenbank `servicebox_history.db` sowie die config werden per Volume nach draußen gemountet. Wenn du den Container zerstörst, bleiben deine tausenden Datensätze vollumfänglich und sicher auf deinem PC erhalten!
+
+---
+
+## 🐞 Remote Debugging 
+
+Da die Container "headless" im Hintergrund laufen, protokolliert der Scraper automatisch fehlgeschlagene Abfragen.
+Sollte ein Auto-Download abstürzen (z.B. wegen Timeout oder falscher Chassisnummer), schreibt die API vollautomatisch einen sogenannten "Playwright Trace" als `.zip`-Datei in den Ordner `./debug`.
+
+**Trace untersuchen:**
+Lade dir die kaputte `.zip` Datei auf deinen PC und öffne [https://trace.playwright.dev/](https://trace.playwright.dev/). Ziehe die ZIP-Datei dort hinein. Du siehst nun eine perfekte Zeitkapsel der kompletten Webseite zum Zeitpunkt des Fehlers.
+
+## 🚀 CI/CD GitOps (Auto-Updates mit Portainer)
+Um diesen Code in Zukunft nie mehr manuell auf den Server kopieren zu müssen, setze Portainer so auf:
+
+1. Pushe diesen gesamten Projektordner auf dein (privates) GitHub oder GitLab Repository.
+2. Gehe in Portainer auf **Stacks** -> **Add stack**.
+3. Wähle **Repository** und füge den Link deines Git-Repos ein (bei privaten Repos Zugangsdaten / PAT hinterlegen).
+4. Stelle den `Compose path` auf `docker-compose.yml`.
+5. Aktiviere weiter unten **Automatic updates** (Webhook oder Polling).
+
+*Ergebnis:* Wann immer du in Zukunft auf deinem PC den Python-Code änderst und per `git push` in dein Repository schiebst, reißt Portainer den aktuellen Server automatisch ab, zieht den brandneuen Code und startet den Container vollkommen lautlos innerhalb von Sekunden neu!
