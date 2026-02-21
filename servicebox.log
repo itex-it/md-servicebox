@@ -490,3 +490,4 @@
 2026-02-21 13:40:32,108 - INFO - Docs available at http://localhost:8005/docs
 2026-02-21 13:40:32,128 - INFO - Starting ServiceBox API...
 2026-02-21 13:40:32,130 - INFO - JobManager Worker started.
+2026-02-21 14:15:09,123 - WARNING - Restart requested via API.
