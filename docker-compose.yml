@@ -3,6 +3,7 @@ version: '3.8'
 services:
   servicebox-app:
     build: .
+    image: servicebox-app:1.0.1
     container_name: servicebox-app
     restart: always # Restarts automatically on failure or massive timeout crashes
     ports:
