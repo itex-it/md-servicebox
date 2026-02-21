@@ -1,183 +1,101 @@
-# ServiceBox API & Downloader
+# ServiceBox Integration API (v1.1.0)
 
-A robust, automated tool to retrieve "Maintenance Plan" (Wartungsplan) PDFs and vehicle data (Warranty, LCDV, Recalls) from the Peugeot/Citroën Service Box website for a given VIN.
+Ein automatisierter, hoch skalierbarer "Headless" Web-Scraper zur automatischen Extraktion von Revisionsdaten, Garantiezeiten und Service-Handbüchern (Wartungsplänen) aus dem ServiceBox-Portal (Peugeot, Citroen, DS, Opel).
 
-**Output Location**: All downloaded PDFs are saved to the `downloads/` directory by default.
+## Funktionen (v1.1.0)
+- **Multi-Brand Routing**: Automatische Erkennung der Fahrgestellnummer (WMI) und Weiterleitung an den korrekten Scraper (aktuell: ServiceBox/Stellantis).
+- **Paperless-ngx**: PDFs werden nicht lokal gespeichert, sondern nahtlos in dein bestehendes Paperless-Archiv gepusht. Die API "proxied" die PDFs von Paperless bei späteren Downloads.
+- **Warteschlange (Redis & SQL)**: Parallele Ausführung. Nutzer triggern Jobs über eine Frontend-API, der Arbeiter ackert diese per echter Push-Queue in Redis im Hintergrund ab (`BLPOP`). Fällt Redis aus, springt der Worker lautlos auf SQL-basiertes Polling zurück.
+- **Backend-Abstraktion (SQLAlchemy)**: Egal ob 100 Autos oder 50.000 Autos im Jahr: Die gesamte Speicherarchitektur läuft über ORM-Modelle. In `config.json` kannst du zwischen SQLite, PostgreSQL oder MySQL wählen.
+- **Ressourcen-Blocker**: Zur Steigerung der Geschwindigkeit (Faktor 2x) und maximaler Stabilität blockiert der interne Scraper-Browser jegliche Werbenetzwerke, Videos, Google Analytics und Bilder per Netzwerk-Intercept.
+- **Cockpit-Dashboard**: Vollständige Live-GUI (`index.html`) zur Überwachung der Warteschlangen, Einsicht in die Historie (Garantie, LCDV, Rückrufe) und Anzeige von Fehlerprotokollen.
+- **Proxy-Support**: Trage deine (rotierenden) Proxy-Server in die Konfiguration ein, um IP-Sperren des ServiceBox-Portals zu umgehen.
 
-## Features
-- **Automated PDF Retrieval**: Downloads the official maintenance plan PDF.
-- **Data Extraction**: Parses the dashboard to extract Warranty dates, Technical Data (LCDV), and Recall status.
-- **History Tracking**: Automatically saves all extractions to a local SQLite database (`servicebox_history.db`) and timestamps PDFs to prevent overwrites.
-- **Robustness**: Handles dynamic table layouts and varying data fields automatically.
-- **Headless Support**: Fully functional in background mode using modern Chromium headless.
-- **API Interface**: Simple REST API (FastAPI) for easy integration.
+---
 
-## Quick Start (Windows)
+## Installation & Setup
 
-1.  **Run `install.bat`**:
-    -   Double-click to automatically set up the Python environment and install all dependencies.
-    -   Requires Python 3.8+ to be installed and in your PATH.
+### Voraussetzungen
+1. **Python 3.10+** (64-Bit empfohlen)
+2. **PostgreSQL / MySQL** oder lokales **SQLite**
 
-2.  **Run `start_api.bat`**:
-    -   Starts the API server at `http://localhost:8000`.
-    -   Keep this window open while using the tool.
+### 1. Anwendung installieren
+```cmd
+git clone <repository_url> servicebox_api
+cd servicebox_api
+python -m venv .venv
+.venv\Scripts\activate
 
-## Deployment / Transfer
+pip install -r requirements.txt
+playwright install chromium
+```
 
-To move this tool to another machine:
-1.  Copy the entire folder (excluding `.venv`, `downloads`, and `__pycache__` to save space).
-2.  On the new machine, run `install.bat` once.
-3.  Ready to use!
-
-## Manual Installation (Advanced)
-
-If you prefer using the command line manually:
-
-1.  **Create Environment**: `python -m venv .venv`
-2.  **Activate**: `.venv\Scripts\activate`
-3.  **Install Dependencies**: `pip install -r requirements.txt`
-4.  **Install Browsers**: `playwright install chromium`
-5.  **Run**: `python servicebox_api.py`
-
-## Configuration (`config.json`)
-
-The application is configured via `config.json`. You can change these values without touching the code.
-
+### 2. Konfiguration (`config.json`)
+Benenne eine eventuell existierende `config.example.json` in `config.json` um oder lege sie neu an.
+Hier ein Beispiel:
 ```json
 {
-    "user_id": "DP92228",
-    "password": "YOUR_PASSWORD",
+    "user_id": "DEINE_SERVICEBOX_ID",
+    "password": "DEIN_PASSWORT",
     "login_url": "https://servicebox.peugeot.com/",
-    "headless": true, 
-    "log_level": "INFO", 
+    "headless": true,
+    "log_level": "INFO",
     "output_dir": "downloads",
     "timeout_seconds": 30000,
     "short_timeout_seconds": 5000,
-    "auth_token": "SECRET_TOKEN_123"
-}
-```
-*   **headless**: Set to `false` if you want to see the browser window.
-*   **timeout_seconds**: Max time (ms) for main operations (default: 30000).
-*   **auth_token**: Secret token for API access.
-
-## Usage (API)
-
-**Authentication**: All endpoints require the `auth_token` defined in `config.json`.
-*   **Header**: `X-Auth-Token: SECRET_TOKEN_123`
-*   **Query Param**: `?token=SECRET_TOKEN_123` (Easy for browser/files)
-
-### Request Data
-**POST** `/api/maintenance-plan` (Header: `X-Auth-Token: ...`)
-```json
-{ "vin": "VF7..." }
-```
-
-### Download File
-**GET** `/api/files/{filename}?token=SECRET_TOKEN_123`
-
-## Web Dashboard (Cockpit)
-
-The system includes a visual dashboard to monitor activity, view logs, and control the server.
-
-*   **URL**: `http://localhost:8005/` (Redirects to Login)
-*   **Login**: Enter the `auth_token` from your `config.json`.
-
-### Features
-*   **Live KPIs**: Monitor total downloads, success rates, and last activity.
-*   **Search**: Filter history by VIN or status.
-*   **System Control**: Restart or Shutdown the server directly from the UI.
-*   **Live Logs**: View `servicebox.log` in real-time.
-
-### 3. Response Structure
-```json
-{
-  "success": true,
-  "vin": "VF7FCKFVC9A101965",
-  "file_path": "C:\\path\\to\\VF7FCKFVC9A101965_Wartungsplan.pdf",
-  "vehicle_data": {
-    "warranty_details": {
-      "Garantiebeginndatum": "27/07/2009",
-      "Garantieende": "27/07/2011",
-      "Garantieende Korrosion": "27/07/2021"
-    },
-    "lcdv": {
-      "G": "1", "M": "C", "LP": "A3", "..." : "..."
-    },
-    "recalls": {
-      "status": "None",
-      "message": "Mit dieser VIN sind keine Überprüfungsaktionen verbunden"
+    "auth_token": "SECRET_TOKEN_123",
+    "db_connection": "sqlite:///servicebox_history.db",
+    "redis_url": "redis://localhost:6379/0",
+    "paperless_enabled": true,
+    "paperless_url": "http://paperless.itex.at",
+    "paperless_token": "849735f8c2f685acdf6feec8bc9c2a58a9566afe",
+    "proxy": {
+        "server": "",
+        "username": "",
+        "password": ""
     }
-  }
 }
 ```
 
-### Request History
-Get all past extractions for a VIN:
-**GET** `/api/history/{vin}`
-
-```json
-{
-  "vin": "VF7...",
-  "history": [
-    {
-      "timestamp": "2023-10-27 10:00:00",
-      "file_path": "..._20231027_100000_Wartungsplan.pdf",
-      "recall_status": "None",
-      "warranty_data": {...}
-    }
-  ]
-}
+### 3. Starten
+Klicke in Windows idealerweise auf die beiliegende `start_api.bat` oder starte den Server händisch:
+```cmd
+.venv\Scripts\uvicorn servicebox_api:app --host 0.0.0.0 --port 8005 --reload
 ```
 
-## Architecture & Decisions
+Das GUI-Panel (Cockpit) erreichst du anschließend im Browser deiner Wahl unter:
+`http://localhost:8005/static/dashboard.html`
 
-### 1. Headless Mode (`--headless=new`)
-- **Challenge**: Standard `headless=True` in older Playwright/Chromium versions often disrupted popup handling and redirects on Windows.
-- **Solution**: We use the new Chrome headless mode (`--headless=new`). This renders the full browser stack invisibly, ensuring popups and PDF streams behave exactly as they do in headful mode.
+---
 
-### 2. PDF Stream Detection
-- **Challenge**: The "Maintenance Plan" is often delivered as a direct binary stream in a popup, not a downloadable file link.
-- **Solution**: The script intercepts the popup's request. If the Content-Type is `application/pdf`, it downloads the stream directly. If it renders as HTML (older vehicles), it falls back to `Page.printToPDF`.
+## Datenbank Management (`db_manager.py`)
+Um die riesigen gesammelten Datensätze für die Zukunft sicher zu verwalten, gibt es ein eigens geschriebenes Kommandozeilenwerkzeug. Öffne dein Terminal im Ordner und nutze `db_manager.py`.
 
-### 3. Dynamic Data Extraction
-- **Challenge**: Vehicles have different warranty lines (e.g., Paint, Hybrid Battery) and varying LCDV table columns.
-- **Solution**: The extractor uses purely structural constraints (finding tables relative to semantic headers like "Garantiebeginn") and iterates all rows/cells dynamically. It does not rely on fixed XPaths or IDs for data values.
+### 1. Daten Exportieren (Sichern / Backup)
+Exportiert den kompletten aktuellen Zustand aus deiner konfigurierten Datenbank in eine rohe `.json`-Datei.
+```bash
+python db_manager.py export --file backup_2026.json
+```
 
+### 2. Daten Importieren / Überführen (Migration)
+Möchtest du z. B. von SQLite nach PostgreSQL wechseln?
+Ändere in deiner `config.json` den `db_connection` String auf deinen neuen Server (`postgresql://...`) und führe danach den Import aus. Die Daten werden 1:1 in die neuen PostgreSQL-Tabellen geschrieben.
+```bash
+python db_manager.py import --file backup_2026.json
+```
 
-## Error Handling & Robustness
+### 3. Daten Löschen (Bereinigung)
+Löscht gezielt nur bestimmte Partitionen oder leert die komplette Infrastruktur (Tabellenstruktur bleibt erhalten).
+```bash
+# Löscht nur die hängengelassene Warteschlange und laufenden Jobs:
+python db_manager.py clear --target queue
 
-The system is designed to handle common failures gracefully:
+# Löscht nur die Wartungspläne:
+python db_manager.py clear --target maintenance
 
-1.  **Network/Site Issues**:
-    -   Implements **timeouts** (e.g., 30s for critical elements).
-    -   If the site is slow or down, the API returns `400 Bad Request` with a descriptive message (e.g., "Timeout waiting for 'Wartungspläne'").
-2.  **Invalid VINs**:
-    -   Detects if the dashboard fails to load.
-    -   Returns `success: false` and message "Dashboard not loaded (Invalid VIN?)".
-3.  **Popup Failures**:
-    -   If the PDF popup doesn't open (e.g., specific vehicle data missing), strict checks prevent the script from hanging.
-    -   It captures a debug screenshot (`debug_popup_<VIN>.png`) locally before returning an error.
+# Löscht die komplette Historie (Fahrzeugdaten etc.):
+python db_manager.py clear --target history
 
-## Maintenance & Troubleshooting
-
-For a detailed explanation of the system's architecture (Headless mode, PDF streams, Dynamic extraction), please refer to:
-**[ADR_001_VehicleDataExtraction.md](ADR_001_VehicleDataExtraction.md)**
-
-### Logging
-The system writes detailed logs to **`servicebox.log`**.
-- Checks this file if something goes wrong.
-- It rotates automatically (max 5MB, keeps last 3 files).
-
-### Common Issues
-- **"Invalid Popup URL"**: Requires `--headless=new` (already default). Only occurs if standard `headless=True` is forced on Windows.
-- **Empty PDF**: Checks if the VIN has a valid maintenance plan. The script handles "HTML view" vs "Direct Stream" automatically.
-
-## File Structure
-- `servicebox_api.py`: FastAPI entry point.
-- `servicebox_downloader.py`: Core logic class.
-- `config.json`: Configuration file (Credentials, Settings).
-- `servicebox.log`: Log file.
-- `servicebox_history.db`: SQLite database for history.
-- `requirements.txt`: Python package list.
-- `install.bat` / `start_api.bat`: Automation scripts.
-- `downloads/`: Directory where PDFs are saved.
+# Alles unwiderruflich leeren:
+python db_manager.py clear --target all
+```

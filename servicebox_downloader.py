@@ -197,13 +197,24 @@ class ServiceBoxDownloader:
                 # Use new headless mode which supports extensions/popups better on Windows
                 launch_args.append("--headless=new")
             
-            # We set headless=False in launch() because we are passing the flag manually via args
-            # if we want the "new" mode. If self.headless is False, we just launch normally (headful).
-            # Effectively: headless=False always, but args control the actual mode if headless is requested.
+            # Proxy implementation
+            proxy_config = config.get("proxy", {})
+            playwright_proxy = None
+            
+            if proxy_config and proxy_config.get("server"):
+                logger.info(f"[ServiceBoxDownloader] Launching with proxy server: {proxy_config.get('server')}")
+                playwright_proxy = {
+                    "server": proxy_config.get("server"),
+                }
+                if proxy_config.get("username"):
+                    playwright_proxy["username"] = proxy_config.get("username")
+                if proxy_config.get("password"):
+                    playwright_proxy["password"] = proxy_config.get("password")
             
             browser = await p.chromium.launch(
                 headless=False, # We control headless via args for 'new' mode
-                args=launch_args
+                args=launch_args,
+                proxy=playwright_proxy
             )
             context = await browser.new_context(
                 http_credentials={
@@ -214,6 +225,29 @@ class ServiceBoxDownloader:
             
             try:
                 page = await context.new_page()
+                
+                # --- RESOURCE BLOCKING OPTIMIZATION ---
+                # Block unnecessary assets to speed up loading and reduce timeout risks
+                blocked_resource_types = ['image', 'media', 'font', 'stylesheet'] # Sometimes stylesheets are needed, but we try blocking them to see if the DOM still evaluates properly for scraping. Actually, better keep stylesheet for stability in some complex SPAs.
+                blocked_resource_types = ['image', 'media', 'font'] 
+                
+                async def intercept_route(route):
+                    req = route.request
+                    if req.resource_type in blocked_resource_types:
+                        await route.abort()
+                        return
+                    
+                    # Block common trackers and heavy unnecessary scripts based on URL keywords
+                    url = req.url.lower()
+                    if any(tracker in url for tracker in ['google-analytics', 'googletagmanager', 'facebook', 'hotjar', 'pixel']):
+                        await route.abort()
+                        return
+                        
+                    await route.continue_()
+                
+                await page.route("**/*", intercept_route)
+                # --------------------------------------
+                
                 login_url = config.get("login_url")
                 print(f"Navigating to {login_url}...")
                 await page.goto(login_url)

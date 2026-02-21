@@ -1,7 +1,7 @@
 import os
 import asyncio
 from fastapi import FastAPI, HTTPException, BackgroundTasks, Security, Depends, status
-from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
+from fastapi.responses import FileResponse, JSONResponse, RedirectResponse, StreamingResponse
 from fastapi.security import APIKeyHeader, APIKeyQuery
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
@@ -14,6 +14,8 @@ import config_loader
 from config_loader import config, logger
 from job_manager import job_manager
 import json
+from paperless_client import paperless_client
+import requests
 
 app = FastAPI(title="ServiceBox API", version="1.1")
 
@@ -88,6 +90,7 @@ class VinRequest(BaseModel):
     vin: str
     force_refresh: bool = False
     priority: bool = False
+    severe_conditions: bool = False
 
 class RetryRequest(BaseModel):
     job_ids: List[str] = []
@@ -115,6 +118,16 @@ def get_maintenance_plan(request: VinRequest, background_tasks: BackgroundTasks)
                 filename = os.path.basename(cached_vehicle['file_path'])
                 download_url = f"/api/files/{filename}?token={config.get('auth_token')}"
                 
+                services_raw = database.get_maintenance_services(request.vin)
+                services = []
+                for srv in services_raw:
+                    interval = srv['interval_severe'] if request.severe_conditions and srv['interval_severe'] else srv['interval_standard']
+                    services.append({
+                        "type": srv['type'],
+                        "description": srv['description'],
+                        "interval": interval
+                    })
+                
                 return {
                     "success": True,
                     "vin": request.vin,
@@ -124,6 +137,7 @@ def get_maintenance_plan(request: VinRequest, background_tasks: BackgroundTasks)
                         "lcdv": cached_vehicle.get('lcdv_data'),
                         "recalls": cached_vehicle.get('recalls_data')
                     },
+                    "services": services,
                     "download_url": download_url,
                     "cached": True,
                     "status": "cached"
@@ -189,12 +203,22 @@ def get_vehicle_metadata(vin: str):
         "has_cache": True
     }
 
-    return {
-        "vin": vin,
-        "last_updated": cached['last_updated'],
-        "status": cached['status'],
-        "has_cache": True
-    }
+@app.get("/api/vehicle/{vin}/services", dependencies=[Depends(get_api_key)])
+def get_vehicle_services(vin: str, severe_conditions: bool = False):
+    services_raw = database.get_maintenance_services(vin)
+    if not services_raw:
+        raise HTTPException(status_code=404, detail="Maintenance services not found for this VIN")
+        
+    services = []
+    for srv in services_raw:
+        interval = srv['interval_severe'] if severe_conditions and srv['interval_severe'] else srv['interval_standard']
+        services.append({
+            "type": srv['type'],
+            "description": srv['description'],
+            "interval": interval
+        })
+        
+    return {"vin": vin, "severe_conditions": severe_conditions, "services": services}
 
 @app.get("/api/jobs", dependencies=[Depends(get_api_key)])
 def list_jobs(status: str = None, vin: str = None, limit: int = 50):
@@ -299,8 +323,31 @@ async def shutdown_server(exit_code):
 @app.get("/api/files/{filename}", dependencies=[Depends(get_api_key)])
 async def get_file(filename: str):
     """
-    Serves the downloaded file.
+    Serves the downloaded file, either locally or proxying from Paperless.
     """
+    if filename.startswith("paperless:"):
+        doc_id = filename.replace("paperless:", "")
+        if not paperless_client.enabled or not paperless_client.token:
+             raise HTTPException(status_code=500, detail="Paperless integration is not configured")
+             
+        try:
+            # Proxy request to Paperless
+            paperless_dl_url = f"{paperless_client.url}/api/documents/{doc_id}/download/"
+            response = requests.get(paperless_dl_url, headers=paperless_client.headers, stream=True)
+            response.raise_for_status()
+            
+            # Forward the stream to the client
+            content_disp = response.headers.get('content-disposition', f'attachment; filename="document_{doc_id}.pdf"')
+            return StreamingResponse(
+                response.iter_content(chunk_size=8192), 
+                media_type=response.headers.get('content-type', 'application/pdf'),
+                headers={"Content-Disposition": content_disp}
+            )
+        except requests.exceptions.RequestException as e:
+            logger.error(f"Failed to fetch document {doc_id} from Paperless: {e}")
+            raise HTTPException(status_code=404, detail="File could not be downloaded from Paperless")
+            
+    # Fallback to local file download
     file_path = os.path.join(DOWNLOAD_DIR, filename)
     if os.path.exists(file_path):
         return FileResponse(file_path, filename=filename)

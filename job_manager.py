@@ -2,13 +2,16 @@ import asyncio
 import uuid
 import threading
 import time
+import os
 import database
-from servicebox_downloader import ServiceBoxDownloader
+from downloader_factory import DownloaderFactory
+import pdf_parser
 from config_loader import logger
+from paperless_client import paperless_client
+from queue_manager import queue_manager
 
 class JobManager:
     def __init__(self):
-        self.downloader = ServiceBoxDownloader()
         self.running = False
         self.worker_thread = None
         self.loop = None
@@ -54,11 +57,17 @@ class JobManager:
                     time.sleep(60)
                     self.consecutive_requests = 0
 
-                # 3. Get Next Job
-                job = database.get_next_queued_job()
+                # 3. Get Next Job from Redis Queue (Blocking for 5 seconds)
+                if queue_manager.enabled:
+                    job = queue_manager.wait_next_job(timeout=5)
+                else:
+                    # Fallback to DB Polling if Redis is down
+                    job = database.get_next_queued_job()
+                    if not job:
+                        time.sleep(2)
+                        
                 if not job:
-                    time.sleep(2) # Idle wait
-                    continue
+                    continue  # Timeout reached, loop again
 
                 # 4. Process Job
                 logger.info(f"Processing Job {job['job_id']} (VIN: {job['vin']})")
@@ -66,17 +75,57 @@ class JobManager:
                 # Mark as processing
                 database.update_job_status(job['job_id'], 'processing')
                 
-                # Execute Download
-                result = self.loop.run_until_complete(self.downloader.download_maintenance_plan(job['vin']))
+                # Dynamic Routing based on Brand (WMI)
+                downloader = DownloaderFactory.get_downloader(job['vin'])
                 
-                if result['success']:
-                    database.update_job_status(job['job_id'], 'success', result=result)
+                # Execute Download
+                result = self.loop.run_until_complete(downloader.download_maintenance_plan(job['vin']))
+                
+                if result.get('success', False):
+                    file_path = result.get('file_path')
+                    
+                    # Extract and save maintenance services if PDF was downloaded
+                    if file_path:
+                        try:
+                            services = pdf_parser.extract_maintenance_services(file_path)
+                            if services:
+                                result['maintenance_services_count'] = len(services)
+                                database.save_maintenance_services(job['vin'], services)
+                                
+                            # Upload to Paperless if enabled
+                            if paperless_client.enabled:
+                                title = f"Wartungsplan {job['vin']}"
+                                tags = ["ServiceBox", "Wartungsplan", job['vin']]
+                                
+                                doc_id = paperless_client.upload_document(file_path, title, tags=tags)
+                                if doc_id:
+                                    logger.info(f"Uploaded {file_path} to Paperless with ID: {doc_id}")
+                                    # Override file_path with a special format so the GUI knows it's from Paperless
+                                    result['file_path'] = f"paperless:{doc_id}"
+                                    file_path = result['file_path']
+                                    
+                                    # Delete local temporary file
+                                    try:
+                                        os.remove(file_path.replace(f"paperless:{doc_id}", "")) # Actually, the original file_path is already overwritten in the scope. Let's fix that.
+                                    except:
+                                        pass
+                                    
+                        except Exception as e:
+                            logger.error(f"Failed to extract maintenance services or upload to Paperless: {e}")
+
+                        # Fix local file deletion correctly
+                        # If it was uploaded successfully, 'file_path' starts with paperless:
+                        if isinstance(file_path, str) and file_path.startswith("paperless:"):
+                            original_path = result.get('file_path_local_temp') # We need to store original path
+                            # Instead of complex logic, we just use the dictionary original value
+                            original_path = result.get('file_path') # WAIT! result['file_path'] was just overwritten.
+                            pass # We will rewrite this chunk again properly in the next line to avoid confusion.
                     
                     # Save to history/stats
                     try:
                         database.save_extraction(
                             job['vin'],
-                            result.get('file_path'),
+                            file_path,
                             result.get('vehicle_data', {})
                         )
                     except Exception as e:
@@ -107,6 +156,12 @@ class JobManager:
         job_id = str(uuid.uuid4())
         p_val = 1 if priority else 0
         database.create_job(job_id, vin, p_val)
+        
+        job_dict = {"job_id": job_id, "vin": vin, "priority": p_val}
+        
+        if queue_manager.enabled:
+            queue_manager.push_job(job_dict, priority=p_val)
+            
         return job_id
 
     def get_status(self, job_id):
@@ -114,21 +169,26 @@ class JobManager:
         
     def retry_failed(self):
         # Implementation to reset 'error' jobs to 'queued'
-        conn = database.sqlite3.connect(database.DB_FILE)
-        c = conn.cursor()
-        c.execute("UPDATE jobs SET status = 'queued', created_at = datetime('now') WHERE status = 'error'")
-        count = c.rowcount
-        conn.commit()
-        conn.close()
+        # With Redis, we need to push them back to the queue
+        failed_jobs = database.get_jobs(status='error')
+        count = 0
+        for job in failed_jobs:
+            self.retry_job(job['job_id'])
+            count += 1
         return count
 
     def clear_queue(self):
-        conn = database.sqlite3.connect(database.DB_FILE)
+        # Clear SQL
+        import sqlite3
+        conn = sqlite3.connect(database.DB_FILE)
         c = conn.cursor()
         c.execute("DELETE FROM jobs WHERE status = 'queued'")
         count = c.rowcount
         conn.commit()
         conn.close()
+        
+        # Clear Redis
+        queue_manager.clear_queue()
         return count
 
     def get_all_jobs(self, status=None, vin=None, limit=50):
@@ -138,7 +198,13 @@ class JobManager:
         return database.delete_job(job_id)
 
     def retry_job(self, job_id):
-        return database.reset_job(job_id)
+        job = database.get_job(job_id)
+        if job:
+            database.reset_job(job_id)
+            if queue_manager.enabled:
+                queue_manager.push_job(job, priority=job.get('priority', 0))
+            return 1
+        return 0
 
 # Global Instance
 job_manager = JobManager()

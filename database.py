@@ -1,296 +1,285 @@
-import sqlite3
 import json
 import os
 from datetime import datetime
+from sqlalchemy import create_engine, select, update, delete, func, desc, or_
+from sqlalchemy.orm import sessionmaker
 
-DB_FILE = "servicebox_history.db"
+from models import Base, VehicleHistory, Vehicle, Job, MaintenanceService
+
+CONFIG_FILE = "config.json"
+
+def get_db_url():
+    try:
+        with open(CONFIG_FILE, 'r') as f:
+            config = json.load(f)
+            # Default to SQLite if missing
+            return config.get('db_connection', 'sqlite:///servicebox_history.db')
+    except Exception:
+        return 'sqlite:///servicebox_history.db'
+
+# Create engine, use connect_args for SQLite to avoid thread issues just in case
+url = get_db_url()
+connect_args = {"check_same_thread": False} if url.startswith("sqlite") else {}
+
+engine = create_engine(url, echo=False, connect_args=connect_args)
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 def init_db():
-    conn = sqlite3.connect(DB_FILE)
-    c = conn.cursor()
-    c.execute('''
-        CREATE TABLE IF NOT EXISTS vehicle_history (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            vin TEXT NOT NULL,
-            timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
-            file_path TEXT,
-            warranty_data TEXT,  -- JSON string
-            lcdv_data TEXT,      -- JSON string
-            recall_status TEXT,
-            recall_message TEXT,
-            status TEXT DEFAULT 'Success', -- New column for extraction status (Success, Failed)
-            recall_data TEXT     -- JSON string for full recall details
-        )
-    ''')
-
-    # Status State Table (Latest snapshot per VIN)
-    c.execute('''
-        CREATE TABLE IF NOT EXISTS vehicles (
-            vin TEXT PRIMARY KEY,
-            last_updated DATETIME,
-            file_path TEXT,
-            warranty_data TEXT,
-            lcdv_data TEXT,
-            recall_status TEXT,
-            recall_message TEXT,
-            recall_data TEXT,
-            status TEXT
-        )
-    ''')
-    
-    # Jobs Table (Persistent Queue)
-    c.execute('''
-        CREATE TABLE IF NOT EXISTS jobs (
-            job_id TEXT PRIMARY KEY,
-            vin TEXT NOT NULL,
-            status TEXT DEFAULT 'queued',   -- queued, processing, success, error
-            priority INTEGER DEFAULT 0,     -- 1=High, 0=Normal
-            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-            result TEXT,                    -- JSON result data
-            error_message TEXT,
-            retry_count INTEGER DEFAULT 0
-        )
-    ''')
-
-    # Migration: Check if status column exists, if not add it
-    try:
-        c.execute("SELECT status FROM vehicle_history LIMIT 1")
-    except sqlite3.OperationalError:
-        c.execute("ALTER TABLE vehicle_history ADD COLUMN status TEXT DEFAULT 'Success'")
-
-    # Migration: Check if recall_data column exists
-    try:
-        c.execute("SELECT recall_data FROM vehicle_history LIMIT 1")
-    except sqlite3.OperationalError:
-        c.execute("ALTER TABLE vehicle_history ADD COLUMN recall_data TEXT")
-        
-    conn.commit()
-    conn.close()
+    print(f"[DB] Initializing database at {url}")
+    Base.metadata.create_all(bind=engine)
 
 def save_extraction(vin, file_path, vehicle_data, status='Success'):
-    conn = sqlite3.connect(DB_FILE)
-    c = conn.cursor()
-    
-    warranty_obj = vehicle_data.get('warranty') or vehicle_data.get('warranty_details') or {}
-    warranty = json.dumps(warranty_obj)
-    lcdv = json.dumps(vehicle_data.get('lcdv', {}))
-    recalls = vehicle_data.get('recalls', {})
-    recall_status = recalls.get('status', 'Unknown')
-    recall_message = recalls.get('message', '')
-    recall_data = json.dumps(recalls)
-    
-    print(f"[DB] Saving - VIN: {vin}, Warranty Keys: {list(warranty_obj.keys())}, Recalls: {len(recalls.get('details', []))} items") # Debug
-
-    c.execute('''
-        INSERT INTO vehicle_history (vin, file_path, warranty_data, lcdv_data, recall_status, recall_message, status, recall_data)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-    ''', (vin, file_path, warranty, lcdv, recall_status, recall_message, status, recall_data))
-    
-    # Upsert into vehicles table
-    c.execute('''
-        INSERT OR REPLACE INTO vehicles (vin, last_updated, file_path, warranty_data, lcdv_data, recall_status, recall_message, recall_data, status)
-        VALUES (?, datetime('now'), ?, ?, ?, ?, ?, ?, ?)
-    ''', (vin, file_path, warranty, lcdv, recall_status, recall_message, recall_data, status))
-    
-    conn.commit()
-    conn.close()
+    with SessionLocal() as db:
+        warranty_obj = vehicle_data.get('warranty') or vehicle_data.get('warranty_details') or {}
+        warranty = json.dumps(warranty_obj)
+        lcdv = json.dumps(vehicle_data.get('lcdv', {}))
+        recalls = vehicle_data.get('recalls', {})
+        recall_status = recalls.get('status', 'Unknown')
+        recall_message = recalls.get('message', '')
+        recall_data = json.dumps(recalls)
+        
+        # Insert History
+        history_entry = VehicleHistory(
+            vin=vin,
+            file_path=file_path,
+            warranty_data=warranty,
+            lcdv_data=lcdv,
+            recall_status=recall_status,
+            recall_message=recall_message,
+            status=status,
+            recall_data=recall_data
+        )
+        db.add(history_entry)
+        
+        # Upsert Vehicle (merge)
+        vehicle = db.query(Vehicle).filter(Vehicle.vin == vin).first()
+        if vehicle:
+            vehicle.file_path = file_path
+            vehicle.warranty_data = warranty
+            vehicle.lcdv_data = lcdv
+            vehicle.recall_status = recall_status
+            vehicle.recall_message = recall_message
+            vehicle.status = status
+            vehicle.recall_data = recall_data
+        else:
+            vehicle = Vehicle(
+                vin=vin,
+                file_path=file_path,
+                warranty_data=warranty,
+                lcdv_data=lcdv,
+                recall_status=recall_status,
+                recall_message=recall_message,
+                status=status,
+                recall_data=recall_data
+            )
+            db.add(vehicle)
+            
+        db.commit()
 
 def get_latest_vehicle(vin):
-    conn = sqlite3.connect(DB_FILE)
-    conn.row_factory = sqlite3.Row
-    c = conn.cursor()
-    c.execute("SELECT * FROM vehicles WHERE vin = ?", (vin,))
-    row = c.fetchone()
-    conn.close()
-    if row:
-        item = dict(row)
-        try: item['warranty_data'] = json.loads(item['warranty_data'])
+    with SessionLocal() as db:
+        vehicle = db.query(Vehicle).filter(Vehicle.vin == vin).first()
+        if not vehicle:
+            return None
+        
+        # Convert to dict manually to emulate old sqlite row behavior
+        item = {
+            'vin': vehicle.vin,
+            'last_updated': str(vehicle.last_updated) if vehicle.last_updated else None,
+            'file_path': vehicle.file_path,
+            'status': vehicle.status,
+            'warranty_data': {},
+            'lcdv_data': {},
+            'recalls_data': {}
+        }
+        
+        try: item['warranty_data'] = json.loads(vehicle.warranty_data) if vehicle.warranty_data else {}
         except: pass
-        try: item['lcdv_data'] = json.loads(item['lcdv_data'])
+        try: item['lcdv_data'] = json.loads(vehicle.lcdv_data) if vehicle.lcdv_data else {}
         except: pass
-        try: item['recalls_data'] = json.loads(item['recall_data']) if item['recall_data'] else {}
+        try:
+            if vehicle.recall_data:
+                item['recalls_data'] = json.loads(vehicle.recall_data)
+            else:
+                item['recalls_data'] = {
+                    'status': vehicle.recall_status,
+                    'message': vehicle.recall_message,
+                    'details': []
+                }
         except: pass
         return item
-    return None
 
 def create_job(job_id, vin, priority=0):
-    conn = sqlite3.connect(DB_FILE)
-    c = conn.cursor()
-    c.execute('''
-        INSERT INTO jobs (job_id, vin, priority, status)
-        VALUES (?, ?, ?, 'queued')
-    ''', (job_id, vin, priority))
-    conn.commit()
-    conn.close()
+    with SessionLocal() as db:
+        job = Job(job_id=job_id, vin=vin, status='queued', priority=priority)
+        db.add(job)
+        db.commit()
 
 def get_job(job_id):
-    conn = sqlite3.connect(DB_FILE)
-    conn.row_factory = sqlite3.Row
-    c = conn.cursor()
-    c.execute("SELECT * FROM jobs WHERE job_id = ?", (job_id,))
-    row = c.fetchone()
-    conn.close()
-    return dict(row) if row else None
+    with SessionLocal() as db:
+        job = db.query(Job).filter(Job.job_id == job_id).first()
+        if not job:
+            return None
+        # Convert sqlalchemy object to dict, ignoring internal state
+        d = dict(job.__dict__)
+        d.pop('_sa_instance_state', None)
+        if d.get('created_at'): d['created_at'] = str(d['created_at'])
+        if d.get('updated_at'): d['updated_at'] = str(d['updated_at'])
+        return d
 
 def update_job_status(job_id, status, result=None, error_message=None):
-    conn = sqlite3.connect(DB_FILE)
-    c = conn.cursor()
-    
-    update_fields = ["status = ?, updated_at = datetime('now')"]
-    params = [status]
-    
-    if result:
-        update_fields.append("result = ?")
-        params.append(json.dumps(result) if isinstance(result, dict) else result)
-    
-    if error_message:
-        update_fields.append("error_message = ?")
-        params.append(error_message)
-        
-    params.append(job_id)
-    
-    query = f"UPDATE jobs SET {', '.join(update_fields)} WHERE job_id = ?"
-    c.execute(query, params)
-    conn.commit()
-    conn.close()
+    with SessionLocal() as db:
+        job = db.query(Job).filter(Job.job_id == job_id).first()
+        if job:
+            job.status = status
+            job.updated_at = datetime.utcnow()
+            if result:
+                job.result = json.dumps(result) if isinstance(result, dict) else result
+            if error_message:
+                job.error_message = error_message
+            db.commit()
 
 def get_next_queued_job():
-    # Priority desc, then oldest created
-    conn = sqlite3.connect(DB_FILE)
-    conn.row_factory = sqlite3.Row
-    c = conn.cursor()
-    c.execute("SELECT * FROM jobs WHERE status = 'queued' ORDER BY priority DESC, created_at ASC LIMIT 1")
-    row = c.fetchone()
-    conn.close()
-    return dict(row) if row else None
+    with SessionLocal() as db:
+        job = db.query(Job).filter(Job.status == 'queued').order_by(Job.priority.desc(), Job.created_at.asc()).first()
+        if not job:
+            return None
+        d = dict(job.__dict__)
+        d.pop('_sa_instance_state', None)
+        if d.get('created_at'): d['created_at'] = str(d['created_at'])
+        if d.get('updated_at'): d['updated_at'] = str(d['updated_at'])
+        return d
 
 def get_jobs(status=None, vin=None, limit=50):
-    conn = sqlite3.connect(DB_FILE)
-    conn.row_factory = sqlite3.Row
-    c = conn.cursor()
-    
-    query = "SELECT * FROM jobs"
-    params = []
-    conditions = []
-    
-    if status:
-        conditions.append("status = ?")
-        params.append(status)
-    if vin:
-        conditions.append("vin LIKE ?")
-        params.append(f"%{vin}%")
+    with SessionLocal() as db:
+        query = db.query(Job)
+        if status:
+            query = query.filter(Job.status == status)
+        if vin:
+            query = query.filter(Job.vin.like(f"%{vin}%"))
+        jobs = query.order_by(Job.created_at.desc()).limit(limit).all()
         
-    if conditions:
-        query += " WHERE " + " AND ".join(conditions)
-        
-    query += " ORDER BY created_at DESC LIMIT ?"
-    params.append(limit)
-    
-    c.execute(query, tuple(params))
-    rows = c.fetchall()
-    conn.close()
-    return [dict(row) for row in rows]
+        res = []
+        for j in jobs:
+            d = dict(j.__dict__)
+            d.pop('_sa_instance_state', None)
+            if d.get('created_at'): d['created_at'] = str(d['created_at'])
+            if d.get('updated_at'): d['updated_at'] = str(d['updated_at'])
+            res.append(d)
+        return res
 
 def delete_job(job_id):
-    conn = sqlite3.connect(DB_FILE)
-    c = conn.cursor()
-    c.execute("DELETE FROM jobs WHERE job_id = ?", (job_id,))
-    count = c.rowcount
-    conn.commit()
-    conn.close()
-    return count
+    with SessionLocal() as db:
+        result = db.query(Job).filter(Job.job_id == job_id).delete()
+        db.commit()
+        return result
 
 def reset_job(job_id):
-    conn = sqlite3.connect(DB_FILE)
-    c = conn.cursor()
-    c.execute("UPDATE jobs SET status = 'queued', created_at = datetime('now'), error_message = NULL WHERE job_id = ?", (job_id,))
-    count = c.rowcount
-    conn.commit()
-    conn.close()
-    return count
+    with SessionLocal() as db:
+        job = db.query(Job).filter(Job.job_id == job_id).first()
+        if job:
+            job.status = 'queued'
+            job.created_at = datetime.utcnow()
+            job.error_message = None
+            db.commit()
+            return 1
+        return 0
 
 def get_history(vin=None, search_term=None, limit=100):
-    conn = sqlite3.connect(DB_FILE)
-    conn.row_factory = sqlite3.Row
-    c = conn.cursor()
-    
-    query = "SELECT * FROM vehicle_history"
-    params = []
-    conditions = []
-    
-    if vin:
-        conditions.append("vin = ?")
-        params.append(vin)
-    elif search_term:
-        conditions.append("(vin LIKE ? OR recall_message LIKE ?)")
-        params.extend([f"%{search_term}%", f"%{search_term}%"])
-        
-    if conditions:
-        query += " WHERE " + " AND ".join(conditions)
-        
-    query += " ORDER BY timestamp DESC LIMIT ?"
-    params.append(limit)
-    
-    c.execute(query, tuple(params))
-    rows = c.fetchall()
-    
-    history = []
-    for row in rows:
-        item = dict(row)
-        try: item['warranty_data'] = json.loads(item['warranty_data'])
-        except: pass
-        try: item['lcdv_data'] = json.loads(item['lcdv_data'])
-        except: pass
-        try: 
-            if item['recall_data']:
-                item['recalls_data'] = json.loads(item['recall_data'])
-            else:
-                # Fallback for old rows without recall_data
-                item['recalls_data'] = {
-                    'status': item['recall_status'],
-                    'message': item['recall_message'],
-                    'details': [] 
-                }
-        except Exception as e: 
-            print(f"[DB] Error loading recall_data for {item['vin']}: {e}")
-            item['recalls_data'] = {}
+    with SessionLocal() as db:
+        query = db.query(VehicleHistory)
+        if vin:
+            query = query.filter(VehicleHistory.vin == vin)
+        elif search_term:
+            query = query.filter(
+                or_(
+                    VehicleHistory.vin.like(f"%{search_term}%"),
+                    VehicleHistory.recall_message.like(f"%{search_term}%")
+                )
+            )
             
-        history.append(item)
+        rows = query.order_by(VehicleHistory.timestamp.desc()).limit(limit).all()
         
-    conn.close()
-    return history
+        history = []
+        for row in rows:
+            item = dict(row.__dict__)
+            item.pop('_sa_instance_state', None)
+            
+            # Format timestamp
+            if item.get('timestamp'):
+                item['timestamp'] = str(item['timestamp'])
+                
+            try: item['warranty_data'] = json.loads(item['warranty_data']) if item.get('warranty_data') else {}
+            except: pass
+            try: item['lcdv_data'] = json.loads(item['lcdv_data']) if item.get('lcdv_data') else {}
+            except: pass
+            try: 
+                if item.get('recall_data'):
+                    item['recalls_data'] = json.loads(item['recall_data'])
+                else:
+                    item['recalls_data'] = {
+                        'status': item.get('recall_status'),
+                        'message': item.get('recall_message'),
+                        'details': [] 
+                    }
+            except Exception as e: 
+                print(f"[DB] Error loading recall_data for {(item.get('vin'))}: {e}")
+                item['recalls_data'] = {}
+                
+            history.append(item)
+            
+        return history
 
 def get_stats(days=30):
-    conn = sqlite3.connect(DB_FILE)
-    c = conn.cursor()
-    
-    # Total Count
-    c.execute("SELECT COUNT(*) FROM vehicle_history")
-    total = c.fetchone()[0]
-    
-    # Success/Fail (based on file_path presence or recall status)
-    # Simplified: Assuming all entries are "processed". 
-    # Real success tracking might need a 'status' column, but presence implies success.
-    
-    # Last Active
-    c.execute("SELECT timestamp FROM vehicle_history ORDER BY timestamp DESC LIMIT 1")
-    last_active = c.fetchone()
-    last_active = last_active[0] if last_active else "Never"
-    
-    # Queue Stats
-    c.execute("SELECT status, COUNT(*) FROM jobs GROUP BY status")
-    queue_counts = dict(c.fetchall())
-    
-    conn.close()
-    return {
-        "total_downloads": total,
-        "last_active": last_active,
-        "success_rate": 100, # Placeholder until we track failures in DB
-        "queue": {
-            "queued": queue_counts.get("queued", 0),
-            "processing": queue_counts.get("processing", 0),
-            "error": queue_counts.get("error", 0),
-            "success": queue_counts.get("success", 0)
+    with SessionLocal() as db:
+        total = db.query(func.count(VehicleHistory.id)).scalar()
+        
+        last_active = db.query(VehicleHistory.timestamp).order_by(VehicleHistory.timestamp.desc()).first()
+        last_active = str(last_active[0]) if last_active else "Never"
+        
+        queue_counts = db.query(Job.status, func.count(Job.job_id)).group_by(Job.status).all()
+        queue_dict = {status: count for status, count in queue_counts}
+        
+        return {
+            "total_downloads": total,
+            "last_active": last_active,
+            "success_rate": 100,
+            "queue": {
+                "queued": queue_dict.get("queued", 0),
+                "processing": queue_dict.get("processing", 0),
+                "error": queue_dict.get("error", 0),
+                "success": queue_dict.get("success", 0)
+            }
         }
-    }
+
+def save_maintenance_services(vin: str, services: list):
+    if not services:
+        return
+        
+    with SessionLocal() as db:
+        db.query(MaintenanceService).filter(MaintenanceService.vin == vin).delete()
+        
+        for srv in services:
+            entry = MaintenanceService(
+                vin=vin,
+                operation_type=srv.get('type', ''),
+                description=srv.get('description', ''),
+                interval_standard=srv.get('interval_standard', ''),
+                interval_severe=srv.get('interval_severe', '')
+            )
+            db.add(entry)
+            
+        db.commit()
+
+def get_maintenance_services(vin: str) -> list:
+    with SessionLocal() as db:
+        rows = db.query(MaintenanceService).filter(MaintenanceService.vin == vin).all()
+        services = []
+        for row in rows:
+            services.append({
+                'type': row.operation_type,
+                'description': row.description,
+                'interval_standard': row.interval_standard,
+                'interval_severe': row.interval_severe
+            })
+        return services

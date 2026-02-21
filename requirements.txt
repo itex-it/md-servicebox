@@ -1,5 +1,11 @@
-fastapi==0.109.0
-uvicorn==0.27.0
-playwright==1.41.1
+fastapi==0.115.8
+uvicorn==0.34.0
+playwright==1.49.1
 beautifulsoup4==4.12.3
-pydantic==2.6.1
+requests==2.32.3
+python-dotenv==1.0.1
+redis==5.0.1
+urllib3==2.3.0
+sqlalchemy>=2.0.0
+psycopg2-binary>=2.9.0
+pymysql>=1.1.0

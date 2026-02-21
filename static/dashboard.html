@@ -190,6 +190,93 @@
             border-radius: 4px;
             margin-bottom: 10px;
         }
+
+        /* Modal Overlay */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.7);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal-content {
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            width: 90%;
+            max-width: 900px;
+            max-height: 90vh;
+            overflow-y: auto;
+            padding: 20px;
+            position: relative;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 10px;
+            margin-bottom: 20px;
+        }
+
+        .modal-close {
+            cursor: pointer;
+            font-size: 1.5rem;
+            color: var(--text-secondary);
+            background: none;
+            border: none;
+        }
+
+        .modal-close:hover {
+            color: var(--error-color);
+        }
+
+        .modal-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        .modal-section {
+            background: rgba(255, 255, 255, 0.05);
+            padding: 15px;
+            border-radius: 6px;
+        }
+
+        .modal-section h4 {
+            margin-top: 0;
+            color: var(--accent-color);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            padding-bottom: 5px;
+        }
+
+        .data-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 5px;
+            font-size: 0.9em;
+            border-bottom: 1px dashed rgba(255, 255, 255, 0.05);
+            padding-bottom: 2px;
+        }
+
+        .data-label {
+            color: var(--text-secondary);
+        }
+
+        .data-value {
+            font-weight: 500;
+            text-align: right;
+            max-width: 60%;
+            word-break: break-word;
+        }
     </style>
 </head>
 
@@ -265,6 +352,26 @@
             </div>
         </div>
 
+        <!-- ACTIVE & QUEUED JOBS TABLE -->
+        <div class="card" id="jobsCard" style="display: none; margin-top: 20px;">
+            <h3>Live Queue & Active Tasks</h3>
+            <div style="overflow-x:auto;">
+                <table style="width:100%; text-align:left; border-collapse:collapse; margin-top:10px" id="jobsTable">
+                    <thead>
+                        <tr style="border-bottom:1px solid #333; height:30px">
+                            <th>Status</th>
+                            <th>VIN</th>
+                            <th>Priority</th>
+                            <th>Job ID</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <!-- Populated by JS -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
         <!-- HISTORY TABLE -->
         <div class="card">
             <h3>Extraction History</h3>
@@ -299,6 +406,30 @@
         </div>
     </div>
 
+    <!-- VIN Details Modal -->
+    <div id="vinModal" class="modal-overlay">
+        <div class="modal-content">
+            <div class="modal-header">
+                <div>
+                    <h2 id="modalVinTitle" style="margin:0; font-family:monospace; color:var(--accent-color)">VIN
+                        Details</h2>
+                    <div style="font-size:0.85em; color:var(--text-secondary)" id="modalDbTimestamp"></div>
+                </div>
+                <button class="modal-close" onclick="closeVinModal()">&times;</button>
+            </div>
+
+            <div style="margin-bottom: 20px; display: flex; gap: 10px;">
+                <button class="btn btn-primary" id="modalRefreshBtn" onclick="requestVinRefresh()">⟳ Erneut Abrufen
+                    (Refresh)</button>
+            </div>
+
+            <div class="modal-grid" id="modalGridContent">
+                <!-- Populated by JS -->
+                Loading...
+            </div>
+        </div>
+    </div>
+
     <script>
         // AUTH & CONFIG
         const TOKEN = localStorage.getItem('sb_token');
@@ -313,10 +444,18 @@
             setInterval(() => {
                 fetchLogs();
                 fetchHistory(); // Auto-refresh history
+                fetchJobs();    // Auto-refresh jobs
             }, 5000);
         });
 
         // ... [skip to fetchStats] ...
+
+        async function refreshAll() {
+            fetchStats();
+            fetchHistory();
+            fetchLogs();
+            fetchJobs();
+        }
 
         function showClientError(msg) {
             const errDiv = document.getElementById('client-errors');
@@ -593,23 +732,33 @@
                             </div>
                         `;
 
+                        // Make error message visible if failed
+                        let errorHtml = '';
+                        if (row.status === 'Failed' && row.error_message) {
+                            errorHtml = `<div style="color:var(--error-color); font-size:0.8em; margin-top:4px; max-width:200px; word-wrap:break-word;">🚨 ${row.error_message}</div>`;
+                        }
+
                         tr.innerHTML = `
-                            <td style="white-space:nowrap">${dateStr}</td>
-                            <td>
+                            <td style="white-space:nowrap; vertical-align: top;">
+                                <div>${statusLed} ${dateStr}</div>
+                                ${errorHtml}
+                            </td>
+                            <td style="vertical-align: top;">
                                 <div style="display:flex; align-items:center; margin-bottom:2px">
                                     ${brandBadge} ${plateDisplay}
                                 </div>
                                 <div style="font-family:monospace; font-weight:bold; color:var(--accent-color); font-size:1.05em">${row.vin || 'UNKNOWN'}</div>
                                 ${modelDisplay}
                             </td>
-                            <td>
+                            <td style="vertical-align: top;">
                                 <div style="display:flex; flex-direction:column; gap:8px;">
                                     ${recallDisplay}
                                     ${warrantyDisplay}
                                 </div>
                             </td>
-                            <td style="text-align:right">
-                                ${filename ? `<a href="/api/files/${filename}?token=${TOKEN}" target="_blank" class="btn btn-small btn-primary" style="text-decoration:none">⬇ PDF</a>` : ''}
+                            <td style="text-align:right; vertical-align: top;">
+                                ${filename ? `<a href="/api/files/${filename}?token=${TOKEN}" target="_blank" class="btn btn-small btn-primary" style="margin-right:5px; text-decoration:none">⬇ PDF</a>` : ''}
+                                <button class="btn btn-small" style="background:#444; color:#fff" onclick="openVinDetails('${row.vin}')">🔎 Details</button>
                             </td>
                         `;
                         tbody.appendChild(tr);
@@ -704,11 +853,71 @@
 
         setInterval(fetchStats, 2000);
 
+        async function clearQueue() {
+            if (!confirm("Alle ausstehenden Jobs wirklich löschen?")) return;
+            try {
+                await fetch('/api/admin/clear-queue', { method: 'POST', headers: API_HEADERS });
+                refreshAll();
+            } catch (e) { showClientError(e.message); }
+        }
+
+        async function fetchJobs() {
+            try {
+                const res = await fetch('/api/jobs', { headers: API_HEADERS });
+                if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+                const data = await res.json();
+
+                const jobs = data.jobs || [];
+                // Filter to show only active or queued
+                const activeJobs = jobs.filter(j => j.status === 'processing' || j.status === 'queued' || j.status === 'error');
+
+                const jobsCard = document.getElementById('jobsCard');
+                const tbody = document.querySelector('#jobsTable tbody');
+                tbody.innerHTML = '';
+
+                if (activeJobs.length === 0) {
+                    jobsCard.style.display = 'none';
+                    return;
+                }
+
+                jobsCard.style.display = 'block';
+
+                activeJobs.forEach(job => {
+                    const tr = document.createElement('tr');
+
+                    let statusColor = '#bbb';
+                    let statusText = job.status;
+                    if (job.status === 'processing') { statusColor = '#03dac6'; statusText = '⚙ Processing'; }
+                    if (job.status === 'queued') { statusColor = '#bb86fc'; statusText = '⏳ Queued'; }
+                    if (job.status === 'error') { statusColor = '#cf6679'; statusText = '❌ Error'; }
+
+                    let errorHtml = '';
+                    if (job.status === 'error' && job.error_message) {
+                        errorHtml = `<div style="color:var(--error-color); font-size:0.8em; margin-top:2px;">${job.error_message}</div>`;
+                    }
+
+                    tr.innerHTML = `
+                        <td style="padding: 8px 0; border-bottom: 1px solid #333">
+                            <span style="color:${statusColor}; font-weight:bold;">${statusText}</span>
+                            ${errorHtml}
+                        </td>
+                        <td style="padding: 8px 0; border-bottom: 1px solid #333; font-family:monospace; color:var(--accent-color)">${job.vin}</td>
+                        <td style="padding: 8px 0; border-bottom: 1px solid #333">${job.priority ? '🔥 High' : 'Normal'}</td>
+                        <td style="padding: 8px 0; border-bottom: 1px solid #333; font-size:0.8em; color:#666">${job.job_id}</td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+            } catch (e) {
+                // Ignore fetching jobs errors
+            }
+        }
+
         // Functions called by HTML buttons
         function refreshAll() {
             fetchStats();
             fetchHistory();
             fetchLogs();
+            fetchJobs();
             document.getElementById('vinSearch').value = '';
         }
 
@@ -729,6 +938,152 @@
 
         function searchHistory() {
             fetchHistory();
+        }
+
+        // --- Modals & Detail View logic ---
+        function closeVinModal() {
+            document.getElementById('vinModal').style.display = 'none';
+        }
+
+        let currentModalVin = '';
+
+        async function openVinDetails(vin) {
+            currentModalVin = vin;
+            document.getElementById('modalVinTitle').innerText = vin;
+            document.getElementById('modalDbTimestamp').innerText = 'Loading...';
+            document.getElementById('modalGridContent').innerHTML = 'Daten werden geladen...';
+            document.getElementById('vinModal').style.display = 'flex';
+
+            try {
+                // Fetch basic history
+                const histRes = await fetch(`/api/history/${vin}`, { headers: API_HEADERS });
+                const histData = await histRes.json();
+
+                // Fetch severe services explicitly
+                const srvRes = await fetch(`/api/vehicle/${vin}/services?severe_conditions=true`, { headers: API_HEADERS });
+                let services = null;
+                if (srvRes.ok) {
+                    const srvData = await srvRes.json();
+                    services = srvData.services;
+                }
+
+                // If no history found entirely
+                if (!histData || !histData.history || histData.history.length === 0) {
+                    document.getElementById('modalGridContent').innerHTML = '<div style="color:var(--error-color)">No local data found for this VIN.</div>';
+                    return;
+                }
+
+                // Use the most recent entry
+                const latest = histData.history[0];
+                if (latest.timestamp) document.getElementById('modalDbTimestamp').innerText = `Letztes Update: ${latest.timestamp} UTC`;
+
+                const parseJsonSafe = (str) => {
+                    if (typeof str === 'object' && str !== null) return str;
+                    try { return JSON.parse(str || '{}'); } catch (e) { return {}; }
+                };
+
+                const warranty = parseJsonSafe(latest.warranty_data);
+                const lcdv = parseJsonSafe(latest.lcdv_data);
+                const recalls = parseJsonSafe(latest.recalls_data || latest.recall_data || latest.recall_message);
+
+                let html = '';
+
+                // Helper to render a section
+                const renderSection = (title, obj) => {
+                    let rows = '';
+                    if (!obj || Object.keys(obj).length === 0) {
+                        rows = '<div class="data-row" style="justify-content:center; color:#666">Keine Daten verfügbar</div>';
+                    } else {
+                        for (const [key, val] of Object.entries(obj)) {
+                            // skip complex nested objects for direct render if needed
+                            if (typeof val === 'object') continue;
+                            rows += `<div class="data-row"><span class="data-label">${key}</span><span class="data-value">${val || '-'}</span></div>`;
+                        }
+                    }
+                    return `<div class="modal-section"><h4>${title}</h4>${rows}</div>`;
+                };
+
+                html += renderSection('Fahrzeugdaten (LCDV)', lcdv);
+                html += renderSection('Garantiedaten', warranty);
+
+                // Custom render for recalls
+                let recallRows = '';
+                if (recalls && recalls.details && Array.isArray(recalls.details) && recalls.details.length > 0) {
+                    recalls.details.forEach(r => {
+                        const col = r.status === 'Open' ? 'var(--error-color)' : (r.status === 'Done' ? 'var(--success-color)' : '#aaa');
+                        recallRows += `<div class="data-row" style="flex-direction:column; align-items:flex-start; border-bottom:1px solid rgba(255,255,255,0.1); margin-bottom:8px; padding-bottom:8px;">
+                            <div style="display:flex; justify-content:space-between; width:100%;">
+                                <strong style="color:${col}">${r.code}</strong>
+                                <span style="color:${col}; font-size:0.8em">${r.status.toUpperCase()}</span>
+                            </div>
+                            <div style="font-size:0.85em; color:#ddd; margin-top:4px;">${r.description}</div>
+                         </div>`;
+                    });
+                } else {
+                    recallRows = `<div class="data-row"><span class="data-label">Status</span><span class="data-value">${recalls.status || 'Unknown'}</span></div>`;
+                    recallRows += `<div class="data-row"><span class="data-label">Message</span><span class="data-value">${recalls.message || '-'}</span></div>`;
+                }
+                html += `<div class="modal-section"><h4>Rückrufaktionen (Recalls)</h4>${recallRows}</div>`;
+
+                // Custom render for services
+                let srvRows = '';
+                if (services && services.length > 0) {
+                    services.forEach(s => {
+                        srvRows += `<div class="data-row" style="flex-direction:column; align-items:flex-start; margin-bottom:10px; padding-bottom:10px; border-bottom:1px solid rgba(255,255,255,0.05)">
+                            <div style="color:var(--success-color); font-weight:bold; margin-bottom:2px">${s.type}</div>
+                            <div style="color:#ddd; margin-bottom:4px; font-size:0.9em">${s.description}</div>
+                            <div style="display:flex; justify-content:space-between; width:100%; font-size:0.85em;">
+                                <span style="color:#aaa">Intervall (Erschwert):</span>
+                                <span style="color:#fff; font-weight:bold">${s.interval}</span>
+                            </div>
+                        </div>`;
+                    });
+                } else {
+                    srvRows = '<div class="data-row" style="justify-content:center; color:#666">Kein Wartungsplan extrahiert</div>';
+                }
+                html += `<div class="modal-section" style="grid-column: 1 / -1"><h4>Wartungsplan (Erschwerte Bedingungen)</h4><div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap:15px;">${srvRows}</div></div>`;
+
+                document.getElementById('modalGridContent').innerHTML = html;
+
+            } catch (e) {
+                document.getElementById('modalGridContent').innerHTML = `<div style="color:var(--error-color)">Fehler beim Laden der Details: ${e.message}</div>`;
+            }
+        }
+
+        async function requestVinRefresh() {
+            if (!currentModalVin) return;
+            const btn = document.getElementById('modalRefreshBtn');
+            btn.disabled = true;
+            btn.innerText = "Queueing...";
+
+            try {
+                const res = await fetch('/api/maintenance-plan', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Auth-Token': TOKEN
+                    },
+                    body: JSON.stringify({
+                        vin: currentModalVin,
+                        force_refresh: true, // Force extraction to pull fresh data
+                        priority: true
+                    })
+                });
+
+                if (res.ok) {
+                    closeVinModal();
+                    // Optional: highlight that it's in progress
+                    refreshAll();
+                } else {
+                    const data = await res.json();
+                    alert("Error triggering refresh: " + (data.error || res.statusText));
+                }
+            } catch (e) {
+                alert("Request failed: " + e.message);
+            } finally {
+                btn.disabled = false;
+                btn.innerText = "⟳ Erneut Abrufen (Refresh)";
+            }
         }
     </script>
 </body>
