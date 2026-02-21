@@ -16,16 +16,14 @@ services:
       caddy: servicebox.autoleeb.at
       caddy.reverse_proxy: "{{upstreams 8005}}"
     volumes:
-      # Wir speichern die lokale SQLite Datenbank ausserhalb des Containers, 
-      # damit diese bei Neustarts oder Updates nicht geloescht wird.
-      - ./servicebox_history.db:/app/servicebox_history.db
-      - ./config.json:/app/config.json
+      # Wir speichern die Datenbank in einem echten, sicheren Docker Volume
+      - servicebox_db:/app/data
       - ./downloads:/app/downloads
       - ./debug:/app/debug
-      - ./servicebox.log:/app/servicebox.log
     environment:
       # Optional: Hier koennen Config-Werte ueberschrieben werden.
       - REDIS_URL=redis://redis:6379/0
+      - DB_CONNECTION=sqlite:////app/data/servicebox_history.db
 
   redis:
     image: redis:alpine
@@ -44,3 +42,4 @@ networks:
 
 volumes:
   redis_data:
+  servicebox_db:
