@@ -288,6 +288,7 @@
             <span class="status-badge status-online">SYSTEM ONLINE</span>
         </div>
         <div class="controls-section">
+            <button class="btn btn-primary" onclick="openSettingsModal()">⚙ Settings</button>
             <button class="btn btn-primary" onclick="refreshAll()">Refresh</button>
             <button class="btn btn-danger" onclick="apiAction('restart')">Restart</button>
             <button class="btn btn-danger" onclick="apiAction('shutdown')">Shutdown</button>
@@ -332,22 +333,43 @@
                     <button class="btn btn-small btn-danger" onclick="clearQueue()">🗑 Clear Queue</button>
                 </div>
             </div>
+            <style>
+                .q-box {
+                    flex: 1;
+                    background: #252525;
+                    padding: 10px;
+                    border-radius: 4px;
+                    cursor: pointer;
+                    border: 1px solid transparent;
+                    transition: 0.2s;
+                }
+
+                .q-box:hover {
+                    background: #2d2d2d;
+                    border-color: rgba(255, 255, 255, 0.2);
+                }
+
+                .q-box.active {
+                    border-color: var(--accent-color);
+                }
+            </style>
             <div style="display:flex; gap:20px; text-align:center">
-                <div style="flex:1; background:#252525; padding:10px; border-radius:4px">
+                <div class="q-box" id="qb-queued" onclick="setJobFilter('queued')">
                     <div style="font-size:0.8em; color:#aaa">Pending</div>
                     <div id="q-pending" style="font-size:1.5em; font-weight:bold">0</div>
                 </div>
-                <div style="flex:1; background:#252525; padding:10px; border-radius:4px">
+                <div class="q-box" id="qb-processing" onclick="setJobFilter('processing')">
                     <div style="font-size:0.8em; color:#aaa">Processing</div>
                     <div id="q-processing" style="font-size:1.5em; font-weight:bold; color:var(--accent-color)">0</div>
                 </div>
-                <div style="flex:1; background:#252525; padding:10px; border-radius:4px">
+                <div class="q-box" id="qb-error" onclick="setJobFilter('error')">
                     <div style="font-size:0.8em; color:#aaa">Failed</div>
                     <div id="q-failed" style="font-size:1.5em; font-weight:bold; color:var(--error-color)">0</div>
                 </div>
-                <div style="flex:1; background:#252525; padding:10px; border-radius:4px">
-                    <div style="font-size:0.8em; color:#aaa">Completed (Session)</div>
-                    <div id="q-completed" style="font-size:1.5em; font-weight:bold; color:var(--success-color)">0</div>
+                <div class="q-box" id="qb-all" onclick="setJobFilter('all')"
+                    style="border-right: 1px dashed #444; margin-right: -10px; padding-right: 20px;">
+                    <div style="font-size:0.8em; color:#aaa">Show All Live</div>
+                    <div style="font-size:1.5em; font-weight:bold; color:#fff">∞</div>
                 </div>
             </div>
         </div>
@@ -363,6 +385,7 @@
                             <th>VIN</th>
                             <th>Priority</th>
                             <th>Job ID</th>
+                            <th style="text-align:right">Action</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -426,6 +449,77 @@
             <div class="modal-grid" id="modalGridContent">
                 <!-- Populated by JS -->
                 Loading...
+            </div>
+        </div>
+    </div>
+
+    <!-- System Settings Modal -->
+    <div id="settingsModal" class="modal-overlay">
+        <div class="modal-content" style="max-width: 600px;">
+            <div class="modal-header">
+                <div>
+                    <h2 style="margin:0; color:var(--success-color)">⚙ System Settings</h2>
+                    <div style="font-size:0.85em; color:var(--text-secondary)">Bearbeite Systemvariablen (wird sofort
+                        aktiv)</div>
+                </div>
+                <button class="modal-close" onclick="closeSettingsModal()">&times;</button>
+            </div>
+
+            <div class="modal-section" id="settingsFormContent">
+                <style>
+                    .form-group {
+                        margin-bottom: 15px;
+                    }
+
+                    .form-group label {
+                        display: block;
+                        margin-bottom: 5px;
+                        color: var(--text-secondary);
+                        font-size: 0.9em;
+                    }
+
+                    .form-group input {
+                        width: 100%;
+                        padding: 8px;
+                        background: #2d2d2d;
+                        border: 1px solid var(--border-color);
+                        color: white;
+                        border-radius: 4px;
+                        box-sizing: border-box;
+                    }
+
+                    .form-group input:focus {
+                        outline: none;
+                        border-color: var(--accent-color);
+                    }
+                </style>
+
+                <div class="form-group">
+                    <label>Peugeot ServiceBox User ID / Email</label>
+                    <input type="text" id="cfg_user_id">
+                </div>
+                <div class="form-group">
+                    <label>Peugeot ServiceBox Password</label>
+                    <input type="password" id="cfg_password" placeholder="********">
+                </div>
+                <div class="form-group">
+                    <label>Paperless-ngx URL</label>
+                    <input type="text" id="cfg_paperless_url" placeholder="http://paperless.itex.at/api">
+                </div>
+                <div class="form-group">
+                    <label>Paperless Token</label>
+                    <input type="password" id="cfg_paperless_token" placeholder="********">
+                </div>
+                <div class="form-group">
+                    <label>API Auth Key (X-Auth-Token für externe Tools wie n8n)</label>
+                    <input type="text" id="cfg_auth_token">
+                </div>
+
+                <div style="margin-top: 25px; display: flex; justify-content: flex-end; gap: 10px;">
+                    <button class="btn" style="background:#555; color:white"
+                        onclick="closeSettingsModal()">Abbrechen</button>
+                    <button class="btn btn-primary" onclick="saveSettings()">Speichern</button>
+                </div>
             </div>
         </div>
     </div>
@@ -861,6 +955,15 @@
             } catch (e) { showClientError(e.message); }
         }
 
+        let currentJobFilter = 'all';
+        function setJobFilter(filter) {
+            currentJobFilter = filter;
+            document.querySelectorAll('.q-box').forEach(el => el.classList.remove('active'));
+            const activeEl = document.getElementById('qb-' + filter);
+            if (activeEl) activeEl.classList.add('active');
+            fetchJobs();
+        }
+
         async function fetchJobs() {
             try {
                 const res = await fetch('/api/jobs', { headers: API_HEADERS });
@@ -868,19 +971,27 @@
                 const data = await res.json();
 
                 const jobs = data.jobs || [];
-                // Filter to show only active or queued
-                const activeJobs = jobs.filter(j => j.status === 'processing' || j.status === 'queued' || j.status === 'error');
+                let activeJobs = jobs.filter(j => j.status === 'processing' || j.status === 'queued' || j.status === 'error');
+
+                if (currentJobFilter !== 'all') {
+                    activeJobs = activeJobs.filter(j => j.status === currentJobFilter);
+                }
 
                 const jobsCard = document.getElementById('jobsCard');
                 const tbody = document.querySelector('#jobsTable tbody');
                 tbody.innerHTML = '';
 
-                if (activeJobs.length === 0) {
+                if (activeJobs.length === 0 && currentJobFilter === 'all') {
                     jobsCard.style.display = 'none';
                     return;
                 }
 
                 jobsCard.style.display = 'block';
+
+                if (activeJobs.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; padding: 20px; color:#888;">No jobs found in this category.</td></tr>';
+                    return;
+                }
 
                 activeJobs.forEach(job => {
                     const tr = document.createElement('tr');
@@ -893,17 +1004,21 @@
 
                     let errorHtml = '';
                     if (job.status === 'error' && job.error_message) {
-                        errorHtml = `<div style="color:var(--error-color); font-size:0.8em; margin-top:2px;">${job.error_message}</div>`;
+                        errorHtml = `<div style="color:var(--error-color); font-size:0.8em; margin-top:2px; max-width: 300px;">${job.error_message}</div>`;
                     }
 
                     tr.innerHTML = `
-                        <td style="padding: 8px 0; border-bottom: 1px solid #333">
+                        <td style="padding: 8px 0; border-bottom: 1px solid #333; vertical-align: top;">
                             <span style="color:${statusColor}; font-weight:bold;">${statusText}</span>
                             ${errorHtml}
                         </td>
-                        <td style="padding: 8px 0; border-bottom: 1px solid #333; font-family:monospace; color:var(--accent-color)">${job.vin}</td>
-                        <td style="padding: 8px 0; border-bottom: 1px solid #333">${job.priority ? '🔥 High' : 'Normal'}</td>
-                        <td style="padding: 8px 0; border-bottom: 1px solid #333; font-size:0.8em; color:#666">${job.job_id}</td>
+                        <td style="padding: 8px 0; border-bottom: 1px solid #333; font-family:monospace; color:var(--accent-color); vertical-align: top;">${job.vin}</td>
+                        <td style="padding: 8px 0; border-bottom: 1px solid #333; vertical-align: top;">${job.priority ? '🔥 High' : 'Normal'}</td>
+                        <td style="padding: 8px 0; border-bottom: 1px solid #333; font-size:0.8em; color:#666; vertical-align: top;">${job.job_id}</td>
+                        <td style="padding: 8px 0; border-bottom: 1px solid #333; text-align:right; vertical-align: top;">
+                            ${job.status === 'error' ? `<button class="btn btn-small btn-primary" onclick="retrySingleJob('${job.job_id}')" title="Retry this job">⟳</button>` : ''}
+                            <button class="btn btn-small btn-danger" onclick="deleteJob('${job.job_id}')" title="Delete job">🗑</button>
+                        </td>
                     `;
                     tbody.appendChild(tr);
                 });
@@ -911,6 +1026,36 @@
                 // Ignore fetching jobs errors
             }
         }
+
+        async function deleteJob(jobId) {
+            if (!confirm("Diesen Auftrag aus der Warteschlange löschen?")) return;
+            try {
+                const res = await fetch(`/api/jobs/${jobId}`, { method: 'DELETE', headers: API_HEADERS });
+                if (res.ok) fetchJobs();
+            } catch (e) { alert(e.message); }
+        }
+
+        async function retrySingleJob(jobId) {
+            try {
+                const res = await fetch(`/api/jobs/${jobId}/retry`, { method: 'POST', headers: API_HEADERS });
+                if (res.ok) fetchJobs();
+            } catch (e) { alert(e.message); }
+        }
+
+        async function retryFailedJobs() {
+            try {
+                const res = await fetch(`/api/jobs/retry`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', ...API_HEADERS },
+                    body: JSON.stringify({ all_failed: true })
+                });
+                if (res.ok) {
+                    alert("Alle fehlgeschlagenen Aufträge wurden neu eingereiht.");
+                    fetchJobs();
+                }
+            } catch (e) { alert(e.message); }
+        }
+
 
         // Functions called by HTML buttons
         function refreshAll() {
@@ -959,8 +1104,8 @@
                 const histRes = await fetch(`/api/history/${vin}`, { headers: API_HEADERS });
                 const histData = await histRes.json();
 
-                // Fetch severe services explicitly
-                const srvRes = await fetch(`/api/vehicle/${vin}/services?severe_conditions=true`, { headers: API_HEADERS });
+                // Fetch all services (contains both standard and severe)
+                const srvRes = await fetch(`/api/vehicle/${vin}/services`, { headers: API_HEADERS });
                 let services = null;
                 if (srvRes.ok) {
                     const srvData = await srvRes.json();
@@ -1032,16 +1177,20 @@
                         srvRows += `<div class="data-row" style="flex-direction:column; align-items:flex-start; margin-bottom:10px; padding-bottom:10px; border-bottom:1px solid rgba(255,255,255,0.05)">
                             <div style="color:var(--success-color); font-weight:bold; margin-bottom:2px">${s.type}</div>
                             <div style="color:#ddd; margin-bottom:4px; font-size:0.9em">${s.description}</div>
-                            <div style="display:flex; justify-content:space-between; width:100%; font-size:0.85em;">
-                                <span style="color:#aaa">Intervall (Erschwert):</span>
-                                <span style="color:#fff; font-weight:bold">${s.interval}</span>
+                            <div style="display:flex; justify-content:space-between; width:100%; font-size:0.85em; margin-top:4px;">
+                                <span style="color:#aaa">Standard:</span>
+                                <span style="color:#fff; font-weight:bold">${s.interval_standard || '-'}</span>
+                            </div>
+                            <div style="display:flex; justify-content:space-between; width:100%; font-size:0.85em; margin-top:2px;">
+                                <span style="color:#aaa">Erschwert:</span>
+                                <span style="color:#fff; font-weight:bold">${s.interval_severe || '-'}</span>
                             </div>
                         </div>`;
                     });
                 } else {
                     srvRows = '<div class="data-row" style="justify-content:center; color:#666">Kein Wartungsplan extrahiert</div>';
                 }
-                html += `<div class="modal-section" style="grid-column: 1 / -1"><h4>Wartungsplan (Erschwerte Bedingungen)</h4><div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap:15px;">${srvRows}</div></div>`;
+                html += `<div class="modal-section" style="grid-column: 1 / -1"><h4>Wartungsplan</h4><div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap:15px;">${srvRows}</div></div>`;
 
                 document.getElementById('modalGridContent').innerHTML = html;
 
@@ -1085,6 +1234,56 @@
                 btn.innerText = "⟳ Erneut Abrufen (Refresh)";
             }
         }
+
+        // --- Settings Modal logic ---
+        async function openSettingsModal() {
+            document.getElementById('settingsModal').style.display = 'flex';
+            try {
+                const res = await fetch('/api/config', { headers: API_HEADERS });
+                if (res.ok) {
+                    const cfg = await res.json();
+                    document.getElementById('cfg_user_id').value = cfg.user_id || '';
+                    document.getElementById('cfg_password').value = cfg.password || '********'; // visually masked
+                    document.getElementById('cfg_paperless_url').value = cfg.paperless_url || '';
+                    document.getElementById('cfg_paperless_token').value = cfg.paperless_token || '********';
+                    document.getElementById('cfg_auth_token').value = cfg.auth_token || '********';
+                }
+            } catch (e) {
+                alert("Settings fetch failed");
+            }
+        }
+
+        function closeSettingsModal() {
+            document.getElementById('settingsModal').style.display = 'none';
+        }
+
+        async function saveSettings() {
+            const payload = {
+                user_id: document.getElementById('cfg_user_id').value,
+                password: document.getElementById('cfg_password').value,
+                paperless_url: document.getElementById('cfg_paperless_url').value,
+                paperless_token: document.getElementById('cfg_paperless_token').value,
+                auth_token: document.getElementById('cfg_auth_token').value,
+            };
+
+            try {
+                const res = await fetch('/api/config', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', ...API_HEADERS },
+                    body: JSON.stringify({ config_data: payload })
+                });
+                if (res.ok) {
+                    closeSettingsModal();
+                    alert("System Settings saved. Background service configs updated.");
+                } else {
+                    const e = await res.json();
+                    alert("Failed to save: " + e.detail);
+                }
+            } catch (e) {
+                alert("Save error: " + e.message);
+            }
+        }
+
     </script>
 </body>
 

@@ -34,6 +34,30 @@ def load_config():
         
     return config_data
 
+def save_config(new_data: dict):
+    """Saves the given config dictionary back to the JSON file, preserving existing keys where not overwritten."""
+    global config
+    
+    # Load current from disk just in case
+    current_disk_data = {}
+    if os.path.exists(CONFIG_FILE):
+        with open(CONFIG_FILE, 'r') as f:
+            try:
+                current_disk_data = json.load(f)
+            except Exception:
+                pass
+                
+    # Update with new values
+    for k, v in new_data.items():
+        if k not in ["redis_url", "db_connection"]: # Don't persist environment overrides
+            current_disk_data[k] = v
+            config[k] = v # Update RAM instance
+            
+    # Write back
+    with open(CONFIG_FILE, 'w') as f:
+        json.dump(current_disk_data, f, indent=4)
+
+
 def setup_logging(level_name="INFO"):
     """Configures logging to both console and file with rotation."""
     level = getattr(logging, level_name.upper(), logging.INFO)

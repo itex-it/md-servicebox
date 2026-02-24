@@ -96,6 +96,9 @@ class RetryRequest(BaseModel):
     job_ids: List[str] = []
     all_failed: bool = False
 
+class ConfigUpdateRequest(BaseModel):
+    config_data: dict
+
 # Global Active Task Counter
 ACTIVE_TASKS = 0
 
@@ -109,6 +112,11 @@ def get_maintenance_plan(request: VinRequest, background_tasks: BackgroundTasks)
     ACTIVE_TASKS += 1
     
     try:
+        vin_clean = request.vin.strip() if isinstance(request.vin, str) else ""
+        if not vin_clean or vin_clean.lower() == "undefined":
+            raise HTTPException(status_code=400, detail="VIN cannot be empty or undefined.")
+
+            
         # 1. Check Cache (if not forced)
         if not request.force_refresh:
             cached_vehicle = database.get_latest_vehicle(request.vin)
@@ -211,14 +219,14 @@ def get_vehicle_services(vin: str, severe_conditions: bool = False):
         
     services = []
     for srv in services_raw:
-        interval = srv['interval_severe'] if severe_conditions and srv['interval_severe'] else srv['interval_standard']
         services.append({
             "type": srv['type'],
             "description": srv['description'],
-            "interval": interval
+            "interval_standard": srv['interval_standard'],
+            "interval_severe": srv['interval_severe']
         })
         
-    return {"vin": vin, "severe_conditions": severe_conditions, "services": services}
+    return {"vin": vin, "services": services}
 
 @app.get("/api/jobs", dependencies=[Depends(get_api_key)])
 def list_jobs(status: str = None, vin: str = None, limit: int = 50):
@@ -278,6 +286,34 @@ async def get_stats():
     processing = stats.get("queue", {}).get("processing", 0)
     stats["active_tasks"] = ACTIVE_TASKS + processing
     return stats
+
+@app.get("/api/config", dependencies=[Depends(get_api_key)])
+def get_system_config():
+    """Returns the current configuration, masking sensitive data."""
+    safe_config = config.copy()
+    if "password" in safe_config and safe_config["password"]:
+        safe_config["password"] = "********"
+    # Try to mask auth token slightly if it exists
+    if "auth_token" in safe_config and len(safe_config["auth_token"]) > 4:
+         safe_config["auth_token"] = safe_config["auth_token"][:4] + "***"
+    return safe_config
+
+@app.post("/api/config", dependencies=[Depends(get_api_key)])
+def update_system_config(req: ConfigUpdateRequest):
+    """Updates the config and saves it to disk."""
+    from config_loader import save_config
+    
+    data_to_save = req.config_data.copy()
+    
+    # Preserve original password/token if they were sent back as masked
+    if data_to_save.get("password") == "********":
+        data_to_save["password"] = config.get("password", "")
+        
+    if "auth_token" in data_to_save and data_to_save["auth_token"].endswith("***"):
+         data_to_save["auth_token"] = config.get("auth_token", "")
+         
+    save_config(data_to_save)
+    return {"success": True, "message": "Configuration saved."}
 
 @app.get("/api/logs", dependencies=[Depends(get_api_key)])
 async def get_logs(lines: int = 100):
