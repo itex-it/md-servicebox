@@ -363,6 +363,10 @@ async def get_file(filename: str):
     """
     if filename.startswith("paperless:"):
         doc_id = filename.replace("paperless:", "")
+        
+        if doc_id == "PROCESSING_IN_PAPERLESS":
+             raise HTTPException(status_code=404, detail="Document is currently being processed by Paperless. Please try downloading again in a few seconds.")
+             
         if not paperless_client.enabled or not paperless_client.token:
              raise HTTPException(status_code=500, detail="Paperless integration is not configured")
              

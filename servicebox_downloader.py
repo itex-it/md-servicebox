@@ -220,7 +220,10 @@ class ServiceBoxDownloader:
                 http_credentials={
                     "username": config.get("user_id"),
                     "password": config.get("password"),
-                }
+                },
+                locale="de-DE",
+                timezone_id="Europe/Vienna",
+                accept_downloads=True
             )
             
             # Start Playwright Tracing for Docker Debugging
