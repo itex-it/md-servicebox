@@ -116,7 +116,13 @@ def get_maintenance_plan(request: VinRequest, background_tasks: BackgroundTasks)
         vin_clean = request.vin.strip() if isinstance(request.vin, str) else ""
         if not vin_clean or vin_clean.lower() == "undefined":
             raise HTTPException(status_code=400, detail="VIN cannot be empty or undefined.")
-
+            
+        vin_clean = vin_clean.upper()
+        import re
+        if not re.match(r'^[A-Z0-9]+$', vin_clean):
+            raise HTTPException(status_code=400, detail="VIN must only contain alphanumeric characters.")
+        if len(vin_clean) != 17 and len(vin_clean) != 8:
+            raise HTTPException(status_code=400, detail="VIN must be exactly 17 characters (or 8 characters for VIS).")
             
         # 1. Check Cache (if not forced)
         if not request.force_refresh:
