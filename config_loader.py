@@ -20,7 +20,8 @@ def load_config():
             "login_url": "https://servicebox.peugeot.com/",
             "headless": False,
             "log_level": "INFO",
-            "output_dir": "downloads"
+            "output_dir": "downloads",
+            "viewer_token": "VIEWER_ONLY_TOKEN"
         }
     
     with open(CONFIG_FILE, 'r') as f:

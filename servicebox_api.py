@@ -64,19 +64,34 @@ async def get_api_key(
     Validates API Key from Header ('X-Auth-Token') or Query Param ('token').
     """
     expected_token = config.get("auth_token")
-    if not expected_token:
-         # If no token configured, allow open access (or log warning)
-         return None
-         
-    if api_key_header == expected_token:
-        return api_key_header
-    if api_key_query == expected_token:
-        return api_key_query
+    viewer_token = config.get("viewer_token")
+    
+    token_used = api_key_header or api_key_query
+    if not token_used:
+        if not expected_token:
+            return {"token": None, "role": "admin"} # Open access if no token configured
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or missing Authentication Token")
+
+    if expected_token and token_used == expected_token:
+        return {"token": token_used, "role": "admin"}
+    if viewer_token and token_used == viewer_token:
+        return {"token": token_used, "role": "viewer"}
         
     raise HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="Invalid or missing Authentication Token"
+        detail="Invalid Authentication Token"
     )
+
+def require_admin(user: dict = Depends(get_api_key)):
+    """Dependency to enforce admin access."""
+    if user and user.get("role") != "admin":
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admin privileges required for this action.")
+    return user
+
+@app.get("/api/auth/me", dependencies=[Depends(get_api_key)])
+def auth_me(user: dict = Depends(get_api_key)):
+    """Returns the current user's role."""
+    return {"role": user.get("role", "viewer")}
 
 # Initialize downloader with a specific downloads folder
 DOWNLOAD_DIR = os.path.join(os.getcwd(), config.get("output_dir", "downloads"))
@@ -123,6 +138,11 @@ def get_maintenance_plan(request: VinRequest, background_tasks: BackgroundTasks)
             raise HTTPException(status_code=400, detail="VIN must only contain alphanumeric characters.")
         if len(vin_clean) != 17 and len(vin_clean) != 8:
             raise HTTPException(status_code=400, detail="VIN must be exactly 17 characters (or 8 characters for VIS).")
+
+        from downloader_factory import DownloaderFactory
+        brand = DownloaderFactory.get_brand(vin_clean)
+        if brand not in ["Peugeot", "Citroen", "DS", "Opel", "Chevrolet"]:
+            raise HTTPException(status_code=400, detail=f"VIN belongs to '{brand}', which is not supported by ServiceBox.")
             
         # 1. Check Cache (if not forced)
         if not request.force_refresh:
@@ -195,12 +215,12 @@ def get_job_status(job_id: str):
         "error_message": job['error_message']
     }
 
-@app.post("/api/jobs/retry", dependencies=[Depends(get_api_key)])
+@app.post("/api/jobs/retry", dependencies=[Depends(require_admin)])
 def retry_jobs(request: RetryRequest):
     count = job_manager.retry_failed()
     return {"success": True, "retried_count": count}
 
-@app.delete("/api/queue", dependencies=[Depends(get_api_key)])
+@app.delete("/api/queue", dependencies=[Depends(require_admin)])
 def clear_queue():
     count = job_manager.clear_queue()
     return {"success": True, "cleared_count": count}
@@ -243,7 +263,7 @@ def list_jobs(status: str = None, vin: str = None, limit: int = 50):
     jobs = job_manager.get_all_jobs(status, vin, limit)
     return {"jobs": jobs}
 
-@app.delete("/api/jobs/{job_id}", dependencies=[Depends(get_api_key)])
+@app.delete("/api/jobs/{job_id}", dependencies=[Depends(require_admin)])
 def delete_job(job_id: str):
     """
     Deletes a specific job.
@@ -253,7 +273,7 @@ def delete_job(job_id: str):
         raise HTTPException(status_code=404, detail="Job not found")
     return {"success": True, "message": f"Job {job_id} deleted"}
 
-@app.post("/api/jobs/{job_id}/retry", dependencies=[Depends(get_api_key)])
+@app.post("/api/jobs/{job_id}/retry", dependencies=[Depends(require_admin)])
 def retry_single_job(job_id: str):
     """
     Retries a specific job.
@@ -294,18 +314,19 @@ async def get_stats():
     stats["active_tasks"] = ACTIVE_TASKS + processing
     return stats
 
-@app.get("/api/config", dependencies=[Depends(get_api_key)])
+@app.get("/api/config", dependencies=[Depends(require_admin)])
 def get_system_config():
     """Returns the current configuration, masking sensitive data."""
     safe_config = config.copy()
     if "password" in safe_config and safe_config["password"]:
         safe_config["password"] = "********"
-    # Try to mask auth token slightly if it exists
     if "auth_token" in safe_config and len(safe_config["auth_token"]) > 4:
          safe_config["auth_token"] = safe_config["auth_token"][:4] + "***"
+    if "viewer_token" in safe_config and len(safe_config["viewer_token"]) > 4:
+         safe_config["viewer_token"] = safe_config["viewer_token"][:4] + "***"
     return safe_config
 
-@app.post("/api/config", dependencies=[Depends(get_api_key)])
+@app.post("/api/config", dependencies=[Depends(require_admin)])
 def update_system_config(req: ConfigUpdateRequest):
     """Updates the config and saves it to disk."""
     from config_loader import save_config
@@ -318,6 +339,8 @@ def update_system_config(req: ConfigUpdateRequest):
         
     if "auth_token" in data_to_save and data_to_save["auth_token"].endswith("***"):
          data_to_save["auth_token"] = config.get("auth_token", "")
+    if "viewer_token" in data_to_save and data_to_save["viewer_token"].endswith("***"):
+         data_to_save["viewer_token"] = config.get("viewer_token", "")
          
     save_config(data_to_save)
     return {"success": True, "message": "Configuration saved."}
@@ -339,7 +362,7 @@ async def get_logs(lines: int = 100):
     except Exception as e:
         return {"logs": [f"Error reading logs: {str(e)}"]}
 
-@app.post("/api/system/restart", dependencies=[Depends(get_api_key)])
+@app.post("/api/system/restart", dependencies=[Depends(require_admin)])
 async def system_restart():
     """
     Triggers a server restart by exiting with code 10.
@@ -350,7 +373,7 @@ async def system_restart():
     asyncio.create_task(shutdown_server(10))
     return {"message": "Restarting server..."}
 
-@app.post("/api/system/shutdown", dependencies=[Depends(get_api_key)])
+@app.post("/api/system/shutdown", dependencies=[Depends(require_admin)])
 async def system_shutdown():
     """
     Triggers a server shutdown (Exit code 0).

@@ -180,6 +180,10 @@
             font-size: 0.8rem;
         }
 
+        .admin-only {
+            display: none;
+        }
+
         /* Search Bar */
         .search-bar {
             width: 100%;
@@ -288,10 +292,10 @@
             <span class="status-badge status-online">SYSTEM ONLINE</span>
         </div>
         <div class="controls-section">
-            <button class="btn btn-primary" onclick="openSettingsModal()">⚙ Settings</button>
+            <button class="btn btn-primary admin-only" onclick="openSettingsModal()">⚙ Settings</button>
             <button class="btn btn-primary" onclick="refreshAll()">Refresh</button>
-            <button class="btn btn-danger" onclick="apiAction('restart')">Restart</button>
-            <button class="btn btn-danger" onclick="apiAction('shutdown')">Shutdown</button>
+            <button class="btn btn-danger admin-only" onclick="apiAction('restart')">Restart</button>
+            <button class="btn btn-danger admin-only" onclick="apiAction('shutdown')">Shutdown</button>
             <button class="btn" style="background:#555; color:white" onclick="logout()">Logout</button>
         </div>
     </header>
@@ -328,9 +332,9 @@
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px">
                 <h3><span style="color:var(--accent-color)">⚙</span> Queue Management</h3>
                 <div>
-                    <button class="btn btn-small btn-primary" onclick="retryFailedJobs()" style="margin-right:10px">⟳
-                        Retry Failed</button>
-                    <button class="btn btn-small btn-danger" onclick="clearQueue()">🗑 Clear Queue</button>
+                    <button class="btn btn-small btn-primary admin-only" onclick="retryFailedJobs()"
+                        style="margin-right:10px">⟳ Retry Failed</button>
+                    <button class="btn btn-small btn-danger admin-only" onclick="clearQueue()">🗑 Clear Queue</button>
                 </div>
             </div>
             <style>
@@ -530,9 +534,11 @@
         if (!TOKEN) window.location.href = '/static/login.html';
 
         const API_HEADERS = { 'X-Auth-Token': TOKEN };
+        let userRole = 'viewer';
 
         // INITIAL LOAD
-        document.addEventListener('DOMContentLoaded', () => {
+        document.addEventListener('DOMContentLoaded', async () => {
+            await checkAuth();
             refreshAll();
             // Auto-refresh logs and history every 5s
             setInterval(() => {
@@ -541,6 +547,23 @@
                 fetchJobs();    // Auto-refresh jobs
             }, 5000);
         });
+
+        async function checkAuth() {
+            try {
+                const res = await fetch('/api/auth/me', { headers: API_HEADERS });
+                if (res.ok) {
+                    const data = await res.json();
+                    userRole = data.role;
+                    if (userRole === 'admin') {
+                        document.querySelectorAll('.admin-only').forEach(el => el.style.display = 'inline-block');
+                    }
+                } else if (res.status === 401) {
+                    logout();
+                }
+            } catch (e) {
+                console.error("Auth check error: " + e);
+            }
+        }
 
         // ... [skip to fetchStats] ...
 
@@ -1016,8 +1039,8 @@
                         <td style="padding: 8px 0; border-bottom: 1px solid #333; vertical-align: top;">${job.priority ? '🔥 High' : 'Normal'}</td>
                         <td style="padding: 8px 0; border-bottom: 1px solid #333; font-size:0.8em; color:#666; vertical-align: top;">${job.job_id}</td>
                         <td style="padding: 8px 0; border-bottom: 1px solid #333; text-align:right; vertical-align: top;">
-                            ${job.status === 'error' ? `<button class="btn btn-small btn-primary" onclick="retrySingleJob('${job.job_id}')" title="Retry this job">⟳</button>` : ''}
-                            <button class="btn btn-small btn-danger" onclick="deleteJob('${job.job_id}')" title="Delete job">🗑</button>
+                            ${userRole === 'admin' && job.status === 'error' ? `<button class="btn btn-small btn-primary" onclick="retrySingleJob('${job.job_id}')" title="Retry this job">⟳</button>` : ''}
+                            ${userRole === 'admin' ? `<button class="btn btn-small btn-danger" onclick="deleteJob('${job.job_id}')" title="Delete job">🗑</button>` : ''}
                         </td>
                     `;
                     tbody.appendChild(tr);
