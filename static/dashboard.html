@@ -24,7 +24,7 @@
             background-color: var(--bg-color);
             color: var(--text-primary);
             margin: 0;
-            padding: 20px;
+            padding: 10px 20px;
         }
 
         /* Header */
@@ -32,15 +32,15 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 2rem;
-            padding-bottom: 1rem;
+            margin-bottom: 1rem;
+            padding-bottom: 0.5rem;
             border-bottom: 1px solid var(--border-color);
         }
 
         .status-badge {
-            padding: 5px 10px;
+            padding: 3px 8px;
             border-radius: 12px;
-            font-size: 0.85rem;
+            font-size: 0.75rem;
             font-weight: bold;
         }
 
@@ -60,34 +60,35 @@
         .dashboard-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-            gap: 20px;
-            margin-bottom: 20px;
+            gap: 15px;
+            margin-bottom: 15px;
         }
 
         /* Cards */
         .card {
             background-color: var(--card-bg);
             border-radius: 8px;
-            padding: 20px;
+            padding: 15px;
             box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
         }
 
         .card h3 {
             margin-top: 0;
+            margin-bottom: 8px;
             color: var(--text-secondary);
-            font-size: 0.9rem;
+            font-size: 0.85rem;
             text-transform: uppercase;
             letter-spacing: 1px;
         }
 
         .kpi-value {
-            font-size: 2.5rem;
+            font-size: 2.0rem;
             font-weight: bold;
-            margin: 10px 0;
+            margin: 5px 0;
         }
 
         .kpi-sub {
-            font-size: 0.8rem;
+            font-size: 0.75rem;
             color: var(--text-secondary);
         }
 
@@ -288,7 +289,7 @@
 
     <header>
         <div>
-            <h1>ServiceBox Cockpit</h1>
+            <h1 style="margin: 0 0 5px 0; font-size: 1.5rem;">ServiceBox Cockpit</h1>
             <span class="status-badge status-online">SYSTEM ONLINE</span>
         </div>
         <div class="controls-section">
@@ -314,13 +315,15 @@
         </div>
         <div class="card">
             <h3>Last Activity</h3>
-            <div class="kpi-value" style="font-size: 1.2rem; margin-top:25px" id="kpi-last">-</div>
+            <div class="kpi-value" style="font-size: 1.2rem; margin-top:20px" id="kpi-last">-</div>
             <div class="kpi-sub">Server Time</div>
         </div>
-        <div class="card">
-            <h3>Active Tasks</h3>
-            <div class="kpi-value">0</div>
-            <div class="kpi-sub">Idle</div>
+        <div class="card"
+            style="display:flex; flex-direction:column; align-items:center; justify-content:center; padding:10px">
+            <h3 style="margin-bottom:5px">Extraction Ratio</h3>
+            <div style="width: 100px; height: 100px; position:relative">
+                <canvas id="extractionsChart"></canvas>
+            </div>
         </div>
     </div>
 
@@ -426,7 +429,14 @@
 
         <!-- LOG VIEWER -->
         <div class="card">
-            <h3>Live System Logs</h3>
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+                <h3>Live System Logs</h3>
+                <label
+                    style="font-size: 0.8em; color: var(--text-secondary); display:flex; align-items:center; gap:5px; cursor:pointer;">
+                    <input type="checkbox" id="autoScrollLogs" checked>
+                    Auto-Scroll
+                </label>
+            </div>
             <div class="log-terminal" id="logTerminal">
                 Loading logs...
             </div>
@@ -519,6 +529,17 @@
                     <input type="text" id="cfg_auth_token">
                 </div>
 
+                <hr style="border-color: rgba(255,255,255,0.1); margin: 20px 0;">
+
+                <h4 style="color:var(--error-color); margin-top:0;">Danger Zone: Data Management</h4>
+                <div class="form-group" style="display:flex; gap:10px; align-items:flex-end;">
+                    <div style="flex:1">
+                        <label>Delete History & Vehicles older than (Days)</label>
+                        <input type="number" id="cleanup_days" value="30" min="1">
+                    </div>
+                    <button class="btn btn-danger" onclick="cleanupHistory()">🗑 Cleanup Database</button>
+                </div>
+
                 <div style="margin-top: 25px; display: flex; justify-content: flex-end; gap: 10px;">
                     <button class="btn" style="background:#555; color:white"
                         onclick="closeSettingsModal()">Abbrechen</button>
@@ -535,11 +556,24 @@
 
         const API_HEADERS = { 'X-Auth-Token': TOKEN };
         let userRole = 'viewer';
+        let extractionsChartInstance = null;
 
         // INITIAL LOAD
         document.addEventListener('DOMContentLoaded', async () => {
             await checkAuth();
             refreshAll();
+
+            // Setup Log Scroll Listener once
+            const term = document.getElementById('logTerminal');
+            if (term) {
+                term.addEventListener('scroll', () => {
+                    // If user scrolls up by more than 10 pixels from the bottom, disable auto-scroll
+                    if (term.scrollHeight - term.scrollTop - term.clientHeight > 10) {
+                        document.getElementById('autoScrollLogs').checked = false;
+                    }
+                });
+            }
+
             // Auto-refresh logs and history every 5s
             setInterval(() => {
                 fetchLogs();
@@ -908,8 +942,20 @@
                     term.appendChild(div);
                 });
 
-                // Auto-scroll if near bottom
-                term.scrollTop = term.scrollHeight;
+                // Auto-scroll logic respecting user choice
+                const autoScroll = document.getElementById('autoScrollLogs').checked;
+                if (autoScroll) {
+                    term.scrollTop = term.scrollHeight;
+                }
+
+                // If user manually scrolls up, disable auto-scroll
+                term.addEventListener('scroll', () => {
+                    if (term.scrollHeight - term.scrollTop - term.clientHeight > 10) {
+                        document.getElementById('autoScrollLogs').checked = false;
+                    }
+                }, { once: true }); // Only attach once per fetch cycle or manage listener better, but since innerHTML clears it, this is okay for a simple fix if the element wasn't recreated. Actually, term is not recreated.
+                // Let's attach the event listener outside in DOMContentLoaded instead to prevent massive listener accumulation.
+
             } catch (e) {
                 showClientError("Log Fetch Error: " + e.message);
             }
@@ -937,20 +983,46 @@
                     if (elCompleted) elCompleted.innerText = stats.queue.success || 0;
                 }
 
-                // Update active tasks
-                const activeCard = document.querySelectorAll('.card')[3]; // 4th card is Active Tasks
-                if (activeCard) {
-                    const valDiv = activeCard.querySelector('.kpi-value');
-                    const subDiv = activeCard.querySelector('.kpi-sub');
-                    if (valDiv) valDiv.innerText = stats.active_tasks || 0;
-                    if (subDiv) {
-                        if (stats.active_tasks > 0) {
-                            subDiv.innerText = "Processing...";
-                            subDiv.style.color = "#03dac6";
-                        } else {
-                            subDiv.innerText = "Idle";
-                            subDiv.style.color = "#666";
-                        }
+                // --- Chart.js Update Logic ---
+                const unique = stats.unique_vins || 0;
+                const total = stats.total_downloads || 0;
+                const repeats = Math.max(0, total - unique);
+
+                const ctx = document.getElementById('extractionsChart');
+                if (ctx) {
+                    if (extractionsChartInstance) {
+                        extractionsChartInstance.data.datasets[0].data = [unique, repeats];
+                        extractionsChartInstance.update();
+                    } else {
+                        extractionsChartInstance = new Chart(ctx, {
+                            type: 'doughnut',
+                            data: {
+                                labels: ['Unique', 'Repeated'],
+                                datasets: [{
+                                    data: [unique, repeats],
+                                    backgroundColor: ['#bb86fc', '#cf6679'],
+                                    borderWidth: 0
+                                }]
+                            },
+                            options: {
+                                responsive: true,
+                                maintainAspectRatio: false,
+                                cutout: '70%',
+                                plugins: {
+                                    legend: { display: false },
+                                    tooltip: {
+                                        callbacks: {
+                                            label: function (context) {
+                                                let label = context.label || '';
+                                                if (label) label += ': ';
+                                                label += context.parsed;
+                                                return label;
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        });
                     }
                 }
 
@@ -1171,7 +1243,7 @@
                     return `<div class="modal-section"><h4>${title}</h4>${rows}</div>`;
                 };
 
-                html += renderSection('Fahrzeugdaten (LCDV)', lcdv);
+                // ---- Top Row: Wartanty & Recalls ----
                 html += renderSection('Garantiedaten', warranty);
 
                 // Custom render for recalls
@@ -1193,6 +1265,8 @@
                 }
                 html += `<div class="modal-section"><h4>Rückrufaktionen (Recalls)</h4>${recallRows}</div>`;
 
+
+                // ---- Middle Row: Maintenance Plan ----
                 // Custom render for services
                 let srvRows = '';
                 if (services && services.length > 0) {
@@ -1214,6 +1288,9 @@
                     srvRows = '<div class="data-row" style="justify-content:center; color:#666">Kein Wartungsplan extrahiert</div>';
                 }
                 html += `<div class="modal-section" style="grid-column: 1 / -1"><h4>Wartungsplan</h4><div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap:15px;">${srvRows}</div></div>`;
+
+                // ---- Bottom Row: LCDV Basic Data ----
+                html += `<div style="grid-column: 1 / -1">${renderSection('Fahrzeugdaten (LCDV)', lcdv)}</div>`;
 
                 document.getElementById('modalGridContent').innerHTML = html;
 
@@ -1304,6 +1381,28 @@
                 }
             } catch (e) {
                 alert("Save error: " + e.message);
+            }
+        }
+
+        async function cleanupHistory() {
+            const days = document.getElementById('cleanup_days').value;
+            if (!confirm(`Are you sure you want to delete all history records and orphaned vehicles older than ${days} days? This action cannot be undone.`)) {
+                return;
+            }
+            try {
+                const res = await fetch(`/api/history/cleanup?days=${days}`, {
+                    method: 'DELETE',
+                    headers: API_HEADERS
+                });
+                const data = await res.json();
+                if (res.ok) {
+                    alert(`Cleanup successful. ${data.deleted_count} records deleted.`);
+                    refreshAll();
+                } else {
+                    alert("Cleanup failed: " + (data.detail || JSON.stringify(data)));
+                }
+            } catch (e) {
+                alert("Request error: " + e.message);
             }
         }
 

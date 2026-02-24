@@ -4,6 +4,7 @@ import json
 import logging
 from logging.handlers import RotatingFileHandler
 from datetime import datetime
+import zoneinfo
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -60,23 +61,34 @@ def save_config(new_data: dict):
 
 
 def setup_logging(level_name="INFO"):
-    """Configures logging to both console and file with rotation."""
+    """Configures logging to both console and file with rotation.
+       Forces Europe/Vienna timezone for consistency.
+    """
     level = getattr(logging, level_name.upper(), logging.INFO)
     
     logger = logging.getLogger("ServiceBox")
     logger.setLevel(level)
     
+    class ViennaFormatter(logging.Formatter):
+        def converter(self, timestamp):
+            dt = datetime.fromtimestamp(timestamp)
+            vienna_tz = zoneinfo.ZoneInfo("Europe/Vienna")
+            # Convert UTC/Local timestamp to Vienna timezone explicitly
+            # Since fromtimestamp() usually creates a naive local time, we convert it properly
+            dt_utc = datetime.fromtimestamp(timestamp, tz=zoneinfo.ZoneInfo("UTC"))
+            return dt_utc.astimezone(vienna_tz).timetuple()
+            
     # Check if handlers are already added to avoid duplicates
     if not logger.handlers:
         # File Handler (Rotating: 5MB size, max 3 backups)
         file_handler = RotatingFileHandler(LOG_FILE, maxBytes=5*1024*1024, backupCount=3, encoding='utf-8')
-        file_formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+        file_formatter = ViennaFormatter('%(asctime)s - %(levelname)s - %(message)s')
         file_handler.setFormatter(file_formatter)
         logger.addHandler(file_handler)
         
         # Console Handler
         console_handler = logging.StreamHandler()
-        console_formatter = logging.Formatter('%(message)s') # Simpler for console
+        console_formatter = ViennaFormatter('%(asctime)s - %(levelname)s - %(message)s') # Also add timestamp to console for debugging
         console_handler.setFormatter(console_formatter)
         logger.addHandler(console_handler)
         

@@ -345,6 +345,18 @@ def update_system_config(req: ConfigUpdateRequest):
     save_config(data_to_save)
     return {"success": True, "message": "Configuration saved."}
 
+@app.delete("/api/history/cleanup", dependencies=[Depends(require_admin)])
+def cleanup_old_history(days: int = 30):
+    """
+    Deletes history records older than the specified number of days.
+    """
+    try:
+        count = database.delete_old_history(days)
+        return {"success": True, "deleted_count": count, "message": f"Deleted {count} records older than {days} days."}
+    except Exception as e:
+        logger.error(f"Error during history cleanup: {e}")
+        raise HTTPException(status_code=500, detail="Failed to cleanup history.")
+
 @app.get("/api/logs", dependencies=[Depends(get_api_key)])
 async def get_logs(lines: int = 100):
     """

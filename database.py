@@ -1,6 +1,6 @@
 import json
 import os
-from datetime import datetime
+from datetime import datetime, timedelta
 from sqlalchemy import create_engine, select, update, delete, func, desc, or_
 from sqlalchemy.orm import sessionmaker
 
@@ -258,6 +258,7 @@ def get_history(vin=None, search_term=None, limit=100):
 def get_stats(days=30):
     with SessionLocal() as db:
         total = db.query(func.count(VehicleHistory.id)).scalar()
+        unique_vins = db.query(func.count(func.distinct(VehicleHistory.vin))).scalar()
         
         last_active = db.query(VehicleHistory.timestamp).order_by(VehicleHistory.timestamp.desc()).first()
         last_active = str(last_active[0]) if last_active else "Never"
@@ -267,6 +268,7 @@ def get_stats(days=30):
         
         return {
             "total_downloads": total,
+            "unique_vins": unique_vins,
             "last_active": last_active,
             "success_rate": 100,
             "queue": {
@@ -276,6 +278,19 @@ def get_stats(days=30):
                 "success": queue_dict.get("success", 0)
             }
         }
+
+def delete_old_history(days=30):
+    cutoff = datetime.utcnow() - timedelta(days=days)
+    with SessionLocal() as db:
+        count = db.query(VehicleHistory).filter(VehicleHistory.timestamp < cutoff).delete()
+        db.query(Vehicle).filter(Vehicle.last_updated < cutoff).delete()
+        db.query(MaintenanceService).filter(MaintenanceService.id.in_(
+             db.query(MaintenanceService.id).filter(~MaintenanceService.vin.in_(
+                 db.query(Vehicle.vin)
+             ))
+        )).delete(synchronize_session=False) # Cleanup orphan maintenance records
+        db.commit()
+        return count
 
 def save_maintenance_services(vin: str, services: list):
     if not services:
