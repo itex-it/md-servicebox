@@ -185,6 +185,22 @@ def reset_job(job_id):
             return 1
         return 0
 
+def cleanup_stuck_jobs():
+    """
+    Called on startup to reset any jobs that were left in 'processing' 
+    due to a sudden server shutdown or crash.
+    """
+    with SessionLocal() as db:
+        stuck_jobs = db.query(Job).filter(Job.status == 'processing').all()
+        for job in stuck_jobs:
+            job.status = 'error'
+            job.error_message = 'Job was interrupted by server shutdown/restart.'
+            job.updated_at = datetime.utcnow()
+        if stuck_jobs:
+            db.commit()
+            print(f"[DB] Cleaned up {len(stuck_jobs)} stuck jobs.")
+        return len(stuck_jobs)
+
 def clear_queue(status_list=None):
     with SessionLocal() as db:
         query = db.query(Job)

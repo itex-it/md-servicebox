@@ -85,6 +85,7 @@ downloader = ServiceBoxDownloader(output_dir=DOWNLOAD_DIR)
 # Initialize Database
 logger.info("Initializing Database...")
 database.init_db()
+database.cleanup_stuck_jobs()
 
 class VinRequest(BaseModel):
     vin: str
