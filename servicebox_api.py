@@ -1,6 +1,6 @@
 import os
 import asyncio
-from fastapi import FastAPI, HTTPException, BackgroundTasks, Security, Depends, status
+from fastapi import FastAPI, HTTPException, BackgroundTasks, Security, Depends, status, Request, Cookie
 from fastapi.responses import FileResponse, JSONResponse, RedirectResponse, StreamingResponse
 from fastapi.security import APIKeyHeader, APIKeyQuery
 from fastapi.staticfiles import StaticFiles
@@ -57,16 +57,20 @@ api_key_header = APIKeyHeader(name="X-Auth-Token", auto_error=False)
 api_key_query = APIKeyQuery(name="token", auto_error=False)
 
 async def get_api_key(
+    request: Request,
     api_key_header: str = Security(api_key_header),
     api_key_query: str = Security(api_key_query)
 ):
     """
-    Validates API Key from Header ('X-Auth-Token') or Query Param ('token').
+    Validates API Key from Header ('X-Auth-Token'), Query Param ('token'), or Cookie ('sb_token').
     """
     expected_token = config.get("auth_token")
     viewer_token = config.get("viewer_token")
     
-    token_used = api_key_header or api_key_query
+    # Check cookie fallback for file downloads that don't send headers
+    cookie_token = request.cookies.get("sb_token")
+    
+    token_used = api_key_header or api_key_query or cookie_token
     if not token_used:
         if not expected_token:
             return {"token": None, "role": "admin"} # Open access if no token configured
@@ -151,7 +155,7 @@ def get_maintenance_plan(request: VinRequest, background_tasks: BackgroundTasks)
                 print(f"Using cached data for VIN: {request.vin}")
                 # Construct response similar to downloader result
                 filename = os.path.basename(cached_vehicle['file_path'])
-                download_url = f"/api/files/{filename}?token={config.get('auth_token')}"
+                download_url = f"/api/files/{filename}"
                 
                 services_raw = database.get_maintenance_services(request.vin)
                 services = []

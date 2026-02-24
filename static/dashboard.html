@@ -335,8 +335,13 @@
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px">
                 <h3><span style="color:var(--accent-color)">⚙</span> Queue Management</h3>
                 <div>
+                    <button class="btn btn-small btn-secondary admin-only" onclick="retrySelectedJobs()"
+                        style="margin-right:10px" id="btnRetrySelected" disabled>⟳ Retry Selected</button>
+                    <button class="btn btn-small btn-secondary admin-only" onclick="deleteSelectedJobs()"
+                        style="margin-right:10px" id="btnDeleteSelected" disabled>🗑 Delete Selected</button>
+                    |
                     <button class="btn btn-small btn-primary admin-only" onclick="retryFailedJobs()"
-                        style="margin-right:10px">⟳ Retry Failed</button>
+                        style="margin-left:10px; margin-right:10px">⟳ Retry All Failed</button>
                     <button class="btn btn-small btn-danger admin-only" onclick="clearQueue()">🗑 Clear Queue</button>
                 </div>
             </div>
@@ -384,10 +389,13 @@
         <!-- ACTIVE & QUEUED JOBS TABLE -->
         <div class="card" id="jobsCard" style="display: none; margin-top: 20px;">
             <h3>Live Queue & Active Tasks</h3>
-            <div style="overflow-x:auto;">
+            <div style="max-height: 400px; overflow-y: auto; overflow-x: auto;">
                 <table style="width:100%; text-align:left; border-collapse:collapse; margin-top:10px" id="jobsTable">
                     <thead>
-                        <tr style="border-bottom:1px solid #333; height:30px">
+                        <tr
+                            style="border-bottom:1px solid #333; height:30px; position: sticky; top: 0; background: var(--card-bg); z-index: 1;">
+                            <th style="width: 40px; text-align:center;"><input type="checkbox" id="selectAllJobs"
+                                    onclick="toggleAllJobs(this)"></th>
                             <th>Status</th>
                             <th>VIN</th>
                             <th>Priority</th>
@@ -908,7 +916,7 @@
                                 </div>
                             </td>
                             <td style="text-align:right; vertical-align: top;">
-                                ${filename ? `<a href="/api/files/${filename}?token=${TOKEN}" target="_blank" class="btn btn-small btn-primary" style="margin-right:5px; text-decoration:none">⬇ PDF</a>` : ''}
+                                ${filename ? `<a href="/api/files/${filename}" target="_blank" class="btn btn-small btn-primary" style="margin-right:5px; text-decoration:none">⬇ PDF</a>` : ''}
                                 <button class="btn btn-small" style="background:#444; color:#fff" onclick="openVinDetails('${row.vin}')">🔎 Details</button>
                             </td>
                         `;
@@ -1103,6 +1111,9 @@
                     }
 
                     tr.innerHTML = `
+                        <td style="padding: 8px 0; border-bottom: 1px solid #333; text-align:center; vertical-align: top;">
+                            <input type="checkbox" class="job-checkbox" value="${job.job_id}" onchange="updateBulkButtons()">
+                        </td>
                         <td style="padding: 8px 0; border-bottom: 1px solid #333; vertical-align: top;">
                             <span style="color:${statusColor}; font-weight:bold;">${statusText}</span>
                             ${errorHtml}
@@ -1135,6 +1146,42 @@
                 const res = await fetch(`/api/jobs/${jobId}/retry`, { method: 'POST', headers: API_HEADERS });
                 if (res.ok) fetchJobs();
             } catch (e) { alert(e.message); }
+        }
+
+        function toggleAllJobs(source) {
+            const checkboxes = document.querySelectorAll('.job-checkbox');
+            checkboxes.forEach(cb => cb.checked = source.checked);
+            updateBulkButtons();
+        }
+
+        function updateBulkButtons() {
+            const anyChecked = document.querySelectorAll('.job-checkbox:checked').length > 0;
+            const btnRetry = document.getElementById('btnRetrySelected');
+            const btnDelete = document.getElementById('btnDeleteSelected');
+            if (btnRetry) btnRetry.disabled = !anyChecked;
+            if (btnDelete) btnDelete.disabled = !anyChecked;
+        }
+
+        async function deleteSelectedJobs() {
+            const checked = document.querySelectorAll('.job-checkbox:checked');
+            if (checked.length === 0) return;
+            if (!confirm(`Wirklich ${checked.length} Aufträge löschen?`)) return;
+
+            for (let cb of checked) {
+                try { await fetch(`/api/jobs/${cb.value}`, { method: 'DELETE', headers: API_HEADERS }); } catch (e) { }
+            }
+            fetchJobs();
+        }
+
+        async function retrySelectedJobs() {
+            const checked = document.querySelectorAll('.job-checkbox:checked');
+            if (checked.length === 0) return;
+
+            for (let cb of checked) {
+                try { await fetch(`/api/jobs/${cb.value}/retry`, { method: 'POST', headers: API_HEADERS }); } catch (e) { }
+            }
+            alert(`${checked.length} Aufträge neu eingereiht.`);
+            fetchJobs();
         }
 
         async function retryFailedJobs() {
