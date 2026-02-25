@@ -925,7 +925,7 @@
                                 </div>
                             </td>
                             <td style="text-align:right; vertical-align: top;">
-                                ${filename ? `<a href="/api/files/${filename}" target="_blank" class="btn btn-small btn-primary" style="margin-right:5px; text-decoration:none">⬇ PDF</a>` : ''}
+                                ${filename ? `<button class="btn btn-small btn-primary" style="margin-right:5px;" onclick="downloadPdf('${filename}')">⬇ PDF</button>` : ''}
                                 <button class="btn btn-small" style="background:#444; color:#fff" onclick="openVinDetails('${row.vin}')">🔎 Details</button>
                             </td>
                         `;
@@ -1429,6 +1429,48 @@
             } finally {
                 btn.disabled = false;
                 btn.innerText = "⟳ Erneut Abrufen (Refresh)";
+            }
+        }
+        async function downloadPdf(filename) {
+            try {
+                const res = await fetch(`/api/files/${filename}`, {
+                    method: 'GET',
+                    headers: API_HEADERS
+                });
+
+                if (!res.ok) {
+                    const err = await res.json().catch(() => ({}));
+                    throw new Error(err.detail || `HTTP Error ${res.status}`);
+                }
+
+                // Convert response to Blob
+                const blob = await res.blob();
+
+                // Create object URL and trigger download
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.style.display = 'none';
+                a.href = url;
+
+                // Extract filename from disposition if available, else use requested name
+                let finalFilename = filename;
+                const disposition = res.headers.get('content-disposition');
+                if (disposition && disposition.indexOf('filename=') !== -1) {
+                    const matches = /filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/.exec(disposition);
+                    if (matches != null && matches[1]) {
+                        finalFilename = matches[1].replace(/['"]/g, '');
+                    }
+                }
+
+                a.download = finalFilename;
+                document.body.appendChild(a);
+                a.click();
+
+                // Cleanup
+                window.URL.revokeObjectURL(url);
+                document.body.removeChild(a);
+            } catch (e) {
+                alert("Fehler beim Herunterladen der PDF: " + e.message);
             }
         }
 
