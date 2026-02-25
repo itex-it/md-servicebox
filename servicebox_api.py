@@ -333,7 +333,7 @@ def get_vehicle_services(vin: str, severe_conditions: bool = False):
         return {
             "vin": vin, 
             "services_available": False, 
-            "reason": "manufacturer_not_supported" if brand not in ["Peugeot", "Citroen", "DS"] else "model_not_yet_in_database",
+            "reason": "manufacturer_not_supported" if brand not in ["Peugeot", "Citroen", "DS", "Opel", "Chevrolet"] else "model_not_yet_in_database",
             "manufacturer": brand,
             "services": []
         }

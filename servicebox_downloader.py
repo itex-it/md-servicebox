@@ -308,12 +308,30 @@ class ServiceBoxDownloader:
                     result["message"] = "VIN input not found (Login failed?)"
                     return result
 
-                # Validate Dashboard
+                # Validate Dashboard or capture explicit errors
                 try:
-                    await working_frame.wait_for_selector("text=DOKUMENTATION", timeout=self.timeout)
-                except:
+                    error_locator = working_frame.locator("text=Die eingegebene VIN/VIS ist unbekannt")
+                    dashboard_locator = working_frame.locator("text=DOKUMENTATION")
+                    
+                    wait_seconds = int(self.timeout / 1000) + 1
+                    for _ in range(wait_seconds):
+                        if await error_locator.is_visible():
+                            result["success"] = False
+                            result["message"] = "VIN is unknown (Die eingegebene VIN/VIS ist unbekannt)"
+                            logger.error(f"VIN explicitly rejected by ServiceBox: {vin}")
+                            return result
+                        if await dashboard_locator.is_visible():
+                            break
+                        await working_frame.wait_for_timeout(1000)
+                    else:
+                        result["success"] = False
+                        result["message"] = "Dashboard not loaded (Timeout or Website unreachable)"
+                        logger.error(f"Dashboard timeout for VIN {vin}")
+                        return result
+                        
+                except Exception as e:
                     result["success"] = False
-                    result["message"] = "Dashboard not loaded (Invalid VIN?)"
+                    result["message"] = f"Dashboard validation failed: {str(e)}"
                     return result
 
                 # --- EXTRACTION STEP ---
