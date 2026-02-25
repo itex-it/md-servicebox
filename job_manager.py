@@ -25,6 +25,12 @@ class JobManager:
     def start_worker(self):
         if self.running:
             return
+            
+        # Clear left-over queues on startup 
+        database.cleanup_stuck_jobs()
+        if queue_manager.enabled:
+            queue_manager.clear_queue()
+            
         self.running = True
         self.worker_thread = threading.Thread(target=self._worker_loop, daemon=True)
         self.worker_thread.start()

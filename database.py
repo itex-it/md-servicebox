@@ -209,10 +209,10 @@ def cleanup_stuck_jobs():
     due to a sudden server shutdown or crash.
     """
     with SessionLocal() as db:
-        stuck_jobs = db.query(Job).filter(Job.status == 'processing').all()
+        stuck_jobs = db.query(Job).filter(Job.status.in_(['processing', 'queued'])).all()
         for job in stuck_jobs:
             job.status = 'error'
-            job.error_message = 'Job was interrupted by server shutdown/restart.'
+            job.error_message = 'Job cancelled due to server shutdown/restart.'
             job.updated_at = datetime.utcnow()
         if stuck_jobs:
             db.commit()
