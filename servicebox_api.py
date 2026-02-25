@@ -391,7 +391,7 @@ def cleanup_old_history(days: int = 30):
         raise HTTPException(status_code=500, detail="Failed to cleanup history.")
 
 @app.get("/api/logs", dependencies=[Depends(get_api_key)])
-async def get_logs(lines: int = 100):
+def get_logs(lines: int = 100):
     """
     Returns the last N lines of the log file.
     """
@@ -399,11 +399,12 @@ async def get_logs(lines: int = 100):
     if not os.path.exists(log_file):
         return {"logs": ["Log file not found."]}
         
+    import collections
     try:
         with open(log_file, "r", encoding="utf-8") as f:
-            # Simple tail implementation
-            all_lines = f.readlines()
-            return {"logs": all_lines[-lines:]}
+            # Efficient tail implementation using deque
+            tail = collections.deque(f, maxlen=lines)
+            return {"logs": list(tail)}
     except Exception as e:
         return {"logs": [f"Error reading logs: {str(e)}"]}
 

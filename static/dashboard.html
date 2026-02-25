@@ -935,8 +935,9 @@
                     }
                 });
             } catch (e) {
-                // Ignore JSON parse errors from 502/503 HTML gateway pages
-                if (!e.message.includes('Unexpected token')) {
+                // Ignore background polling errors from gateway/proxy or JSON parse
+                const ignoreMsgs = ['Unexpected token', '502', '503', 'Failed to fetch'];
+                if (!ignoreMsgs.some(msg => e.message.includes(msg))) {
                     showClientError("History Fetch Error: " + e.message);
                 }
             }
@@ -978,7 +979,10 @@
                 // Let's attach the event listener outside in DOMContentLoaded instead to prevent massive listener accumulation.
 
             } catch (e) {
-                showClientError("Log Fetch Error: " + e.message);
+                const ignoreMsgs = ['Unexpected token', '502', '503', 'Failed to fetch'];
+                if (!ignoreMsgs.some(msg => e.message.includes(msg))) {
+                    showClientError("Log Fetch Error: " + e.message);
+                }
             }
         }
         async function fetchStats() {
@@ -1154,6 +1158,10 @@
                 updateBulkButtons();
             } catch (e) {
                 // Ignore fetching jobs errors
+                const ignoreMsgs = ['Unexpected token', '502', '503', 'Failed to fetch'];
+                if (!ignoreMsgs.some(msg => e.message.includes(msg))) {
+                    console.error("Jobs Fetch Error: " + e.message);
+                }
             }
         }
 
