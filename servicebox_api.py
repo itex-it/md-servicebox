@@ -304,6 +304,17 @@ def retry_single_job(job_id: str):
     if count == 0:
         raise HTTPException(status_code=404, detail="Job not found")
     return {"success": True, "message": f"Job {job_id} queued for retry"}
+
+@app.post("/api/jobs/bulk-retry", dependencies=[Depends(require_admin)])
+def retry_bulk_jobs(request: BulkJobRequest):
+    """
+    Retries multiple jobs.
+    """
+    count = 0
+    for jid in request.job_ids:
+        count += job_manager.retry_job(jid)
+    return {"success": True, "retried_count": count}
+
 @app.get("/api/history", dependencies=[Depends(get_api_key)])
 def get_all_history(search: str = None, limit: int = 50):
     """

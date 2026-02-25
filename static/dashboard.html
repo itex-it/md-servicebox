@@ -1086,6 +1086,11 @@
 
                 const jobsCard = document.getElementById('jobsCard');
                 const tbody = document.querySelector('#jobsTable tbody');
+
+                // Preserve checked boxes
+                const checkedIds = new Set(Array.from(document.querySelectorAll('.job-checkbox:checked')).map(cb => cb.value));
+                const allSelected = document.getElementById('selectAllJobsCheckbox') ? document.getElementById('selectAllJobsCheckbox').checked : false;
+
                 tbody.innerHTML = '';
 
                 if (activeJobs.length === 0 && currentJobFilter === 'all') {
@@ -1114,9 +1119,10 @@
                         errorHtml = `<div style="color:var(--error-color); font-size:0.8em; margin-top:2px; max-width: 300px;">${job.error_message}</div>`;
                     }
 
+                    const isChecked = checkedIds.has(job.job_id) || allSelected ? 'checked' : '';
                     tr.innerHTML = `
                         <td style="padding: 8px 0; border-bottom: 1px solid #333; text-align:center; vertical-align: top;">
-                            <input type="checkbox" class="job-checkbox" value="${job.job_id}" onchange="updateBulkButtons()">
+                            <input type="checkbox" class="job-checkbox" value="${job.job_id}" onchange="updateBulkButtons()" ${isChecked}>
                         </td>
                         <td style="padding: 8px 0; border-bottom: 1px solid #333; vertical-align: top;">
                             <span style="color:${statusColor}; font-weight:bold;">${statusText}</span>
@@ -1132,6 +1138,7 @@
                     `;
                     tbody.appendChild(tr);
                 });
+                updateBulkButtons();
             } catch (e) {
                 // Ignore fetching jobs errors
             }
@@ -1194,11 +1201,24 @@
             const checked = document.querySelectorAll('.job-checkbox:checked');
             if (checked.length === 0) return;
 
-            for (let cb of checked) {
-                try { await fetch(`/api/jobs/${cb.value}/retry`, { method: 'POST', headers: API_HEADERS }); } catch (e) { }
+            const job_ids = Array.from(checked).map(cb => cb.value);
+
+            try {
+                const res = await fetch(`/api/jobs/bulk-retry`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', ...API_HEADERS },
+                    body: JSON.stringify({ job_ids: job_ids })
+                });
+                if (res.ok) {
+                    alert(`${checked.length} Aufträge neu eingereiht.`);
+                    fetchJobs();
+                } else {
+                    const err = await res.json();
+                    alert("Retry fehlgeschlagen: " + err.detail);
+                }
+            } catch (e) {
+                alert("Fehler: " + e.message);
             }
-            alert(`${checked.length} Aufträge neu eingereiht.`);
-            fetchJobs();
         }
 
         async function retryFailedJobs() {
