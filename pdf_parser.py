@@ -34,13 +34,13 @@ def extract_maintenance_services(pdf_path: str) -> list:
                     if not any(row):
                         continue
                         
-                    # If it's a section header (like ['Systematische Arbeiten', '', ''])
-                    if row[0] and len(row) >= 3 and not row[1] and not row[2]:
+                    # If it's a section header (like ['Systematische Arbeiten', ''] or ['Systematische Arbeiten', '', ''])
+                    if row[0] and len(row) >= 2 and not row[1] and (len(row) < 3 or not row[2]):
                         current_type = row[0]
                         continue
                         
-                    # If it's a data row and has valid content in columns 1 and 2
-                    if len(row) >= 3 and row[0] and (row[1] or row[2]):
+                    # If it's a data row and has valid content
+                    if len(row) >= 2 and row[0] and row[1]:
                         # Avoid matching headers like "WARTUNG", "Normale Nutzungsbedingungen"
                         if "Normale Nutzungsbedingungen" in row[1] or "WARTUNG" in row[0]:
                             continue
@@ -53,7 +53,7 @@ def extract_maintenance_services(pdf_path: str) -> list:
                             'type': current_type,
                             'description': row[0].replace('\n', ' '),
                             'interval_standard': row[1].replace('\n', ' '),
-                            'interval_severe': row[2].replace('\n', ' ') if len(row) > 2 else ""
+                            'interval_severe': row[2].replace('\n', ' ') if len(row) > 2 and row[2] else ""
                         })
                         
     except Exception as e:
