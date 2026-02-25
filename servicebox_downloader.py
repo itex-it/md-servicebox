@@ -28,6 +28,32 @@ class ServiceBoxDownloader:
             return ""
         return re.sub(r'\s+', ' ', text).strip()
 
+    async def _find_in_frames(self, target_page, text_pattern, timeout_sec=10):
+        start_time = time.time()
+        while time.time() - start_time < timeout_sec:
+            for f in target_page.frames:
+                try:
+                    loc = f.get_by_text(text_pattern).first
+                    if await loc.is_visible(timeout=500):
+                        return f, loc
+                except:
+                    pass
+            await asyncio.sleep(0.5)
+        return None, None
+
+    async def _find_locator_in_frames(self, target_page, selector, timeout_sec=10):
+        start_time = time.time()
+        while time.time() - start_time < timeout_sec:
+            for f in target_page.frames:
+                try:
+                    loc = f.locator(selector).first
+                    if await loc.is_visible(timeout=500):
+                        return f, loc
+                except:
+                    pass
+            await asyncio.sleep(0.5)
+        return None, None
+
     def extract_vehicle_data(self, html_content):
         """
         Extracts vehicle data (Warranty, LCDV, Recalls) from the dashboard HTML.
@@ -444,32 +470,40 @@ class ServiceBoxDownloader:
                 # -----------------------
 
                 # Navigate to Documentation
-                await working_frame.evaluate("goTo('/docapvpr/')")
+                # We no longer eagerly evaluate `goTo` as the UI automatically places us on DOKUMENTATION
                 
-                try:
-                    await working_frame.wait_for_selector("text=Wartungspläne", timeout=self.timeout)
-                except:
+                logger.info("Searching for Wartungspläne across all frames...")
+                wartung_frame, wartung_link = await self._find_in_frames(target_page, re.compile("Wartungspläne", re.IGNORECASE), timeout_sec=int(self.timeout/1000))
+                
+                if wartung_link:
+                    await wartung_link.click()
+                    try:
+                        await wartung_frame.wait_for_load_state('networkidle', timeout=self.short_timeout)
+                    except: pass
+                else:
                     result["success"] = False
                     result["message"] = "Timeout waiting for 'Wartungspläne'"
                     return result
 
-                # Access Maintenance Plans
-                wartung_link = working_frame.get_by_text(re.compile("Wartungspläne", re.IGNORECASE)).first
-                await wartung_link.click()
-                await working_frame.wait_for_load_state('networkidle')
-
                 # Maintenance Overview Tab
-                overview_tab = working_frame.locator("#onglet\\.synthese")
-                is_selected = await overview_tab.get_attribute("class")
-                if "titreSectionSelected" not in str(is_selected):
-                    await overview_tab.click()
-                    await working_frame.wait_for_load_state('networkidle')
-                    await working_frame.wait_for_selector("form[name='synthesePEForm']", timeout=self.timeout)
+                logger.info("Searching for Wartungsübersicht tab...")
+                overview_frame, overview_tab = await self._find_locator_in_frames(target_page, "#onglet\\.synthese", timeout_sec=int(self.short_timeout/1000))
+                
+                if overview_tab:
+                    is_selected = await overview_tab.get_attribute("class")
+                    if "titreSectionSelected" not in str(is_selected):
+                        await overview_tab.click()
+                        try:
+                            await overview_frame.wait_for_load_state('networkidle', timeout=self.short_timeout)
+                            await overview_frame.wait_for_selector("form[name='synthesePEForm']", timeout=self.short_timeout)
+                        except: pass
 
                 # Select Normal Conditions
-                select_elem = working_frame.locator("#listeCU")
-                if await select_elem.is_visible():
-                    option_val = await working_frame.evaluate("""
+                logger.info("Searching for Einsatzbedingungen dropdown...")
+                select_frame, select_elem = await self._find_locator_in_frames(target_page, "#listeCU", timeout_sec=int(self.timeout/1000))
+                
+                if select_elem:
+                    option_val = await select_frame.evaluate("""
                         () => {
                             const sel = document.getElementById('listeCU');
                             for (let i = 0; i < sel.options.length; i++) {
@@ -483,10 +517,11 @@ class ServiceBoxDownloader:
                     
                     if option_val:
                         await select_elem.select_option(value=option_val)
-                        search_btn = working_frame.locator("#btnRechercher")
+                        logger.info("Searching for btnRechercher...")
+                        btn_frame, search_btn = await self._find_locator_in_frames(target_page, "#btnRechercher", timeout_sec=int(self.short_timeout/1000))
                         
                         popup_page = None
-                        if await search_btn.is_visible():
+                        if search_btn:
                             try:
                                 async with context.expect_page(timeout=self.short_timeout) as popup_info:
                                     await search_btn.click()
@@ -497,7 +532,13 @@ class ServiceBoxDownloader:
                         if not popup_page:
                             try:
                                 async with context.expect_page(timeout=self.timeout) as popup_info:
-                                    await working_frame.evaluate("callActionSynth()")
+                                    if btn_frame:
+                                        await btn_frame.evaluate("callActionSynth()")
+                                    else:
+                                        for f in target_page.frames:
+                                            try:
+                                                await f.evaluate("callActionSynth()")
+                                            except: pass
                                 popup_page = await popup_info.value
                             except:
                                 # Start checking existing pages if popup opening failed
