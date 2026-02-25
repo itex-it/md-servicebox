@@ -388,7 +388,11 @@
 
         <!-- ACTIVE & QUEUED JOBS TABLE -->
         <div class="card" id="jobsCard" style="display: none; margin-top: 20px;">
-            <h3>Live Queue & Active Tasks</h3>
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+                <h3>Live Queue & Active Tasks</h3>
+                <input type="text" class="search-bar" id="liveVinSearch" placeholder="Search VIN..."
+                    onkeyup="fetchJobs()" style="width: 250px; margin-bottom: 0;">
+            </div>
             <div style="max-height: 400px; overflow-y: auto; overflow-x: auto;">
                 <table style="width:100%; text-align:left; border-collapse:collapse; margin-top:10px" id="jobsTable">
                     <thead>
@@ -396,6 +400,7 @@
                             style="border-bottom:1px solid #333; height:30px; position: sticky; top: 0; background: var(--card-bg); z-index: 1;">
                             <th style="width: 40px; text-align:center;"><input type="checkbox" id="selectAllJobs"
                                     onclick="toggleAllJobs(this)"></th>
+                            <th style="width: 130px;">Date/Time</th>
                             <th>Status</th>
                             <th>VIN</th>
                             <th>Priority</th>
@@ -1080,6 +1085,12 @@
                 const jobs = data.jobs || [];
                 let activeJobs = jobs.filter(j => j.status === 'processing' || j.status === 'queued' || j.status === 'error');
 
+                const liveSearch = document.getElementById('liveVinSearch');
+                if (liveSearch && liveSearch.value.trim().length > 0) {
+                    const term = liveSearch.value.trim().toLowerCase();
+                    activeJobs = activeJobs.filter(j => j.vin.toLowerCase().includes(term));
+                }
+
                 if (currentJobFilter !== 'all') {
                     activeJobs = activeJobs.filter(j => j.status === currentJobFilter);
                 }
@@ -1120,10 +1131,13 @@
                     }
 
                     const isChecked = checkedIds.has(job.job_id) || allSelected ? 'checked' : '';
+                    const localDate = job.created_at ? new Date(job.created_at.replace(' ', 'T') + 'Z').toLocaleString('de-AT', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit' }) : '';
+
                     tr.innerHTML = `
                         <td style="padding: 8px 0; border-bottom: 1px solid #333; text-align:center; vertical-align: top;">
                             <input type="checkbox" class="job-checkbox" value="${job.job_id}" onchange="updateBulkButtons()" ${isChecked}>
                         </td>
+                        <td style="padding: 8px 0; border-bottom: 1px solid #333; vertical-align: top; font-size: 0.9em; color:#ddd;">${localDate}</td>
                         <td style="padding: 8px 0; border-bottom: 1px solid #333; vertical-align: top;">
                             <span style="color:${statusColor}; font-weight:bold;">${statusText}</span>
                             ${errorHtml}

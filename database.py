@@ -22,6 +22,17 @@ url = get_db_url()
 connect_args = {"check_same_thread": False} if url.startswith("sqlite") else {}
 
 engine = create_engine(url, echo=False, connect_args=connect_args)
+
+from sqlalchemy import event
+if url.startswith("sqlite"):
+    @event.listens_for(engine, "connect")
+    def set_sqlite_pragma(dbapi_connection, connection_record):
+        cursor = dbapi_connection.cursor()
+        cursor.execute("PRAGMA journal_mode=WAL")
+        cursor.execute("PRAGMA synchronous=NORMAL")
+        cursor.execute("PRAGMA busy_timeout=5000")
+        cursor.close()
+
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 def init_db():
@@ -273,11 +284,18 @@ def get_stats(days=30):
         queue_counts = db.query(Job.status, func.count(Job.job_id)).group_by(Job.status).all()
         queue_dict = {status: count for status, count in queue_counts}
         
+        success_count = queue_dict.get("success", 0)
+        error_count = queue_dict.get("error", 0)
+        total_finished = success_count + error_count
+        success_rate = 100
+        if total_finished > 0:
+            success_rate = round((success_count / total_finished) * 100)
+        
         return {
             "total_downloads": total,
             "unique_vins": unique_vins,
             "last_active": last_active,
-            "success_rate": 100,
+            "success_rate": success_rate,
             "queue": {
                 "queued": queue_dict.get("queued", 0),
                 "processing": queue_dict.get("processing", 0),
