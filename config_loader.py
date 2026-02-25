@@ -92,6 +92,12 @@ def setup_logging(level_name="INFO"):
         console_handler.setFormatter(console_formatter)
         logger.addHandler(console_handler)
         
+        # Capture Uvicorn Logs into the same file so the Dashboard sees HTTP traffic
+        uvicorn_access = logging.getLogger("uvicorn.access")
+        uvicorn_access.addHandler(file_handler)
+        uvicorn_error = logging.getLogger("uvicorn.error")
+        uvicorn_error.addHandler(file_handler)
+        
     return logger
 
 # Singleton config instance
