@@ -1,30 +1,16 @@
-import requests
+import pdf_parser
 import json
-import time
+import glob
+import os
 
-url = "http://localhost:8005/api/maintenance-plan"
-headers = {
-    "Content-Type": "application/json",
-    "X-Auth-Token": "SECRET_TOKEN_123"
-}
-data = {
-    "vin": "VF3EBRHD8BZ038648"
-}
-
-print(f"Sending request to {url}...")
-try:
-    start = time.time()
-    response = requests.post(url, headers=headers, json=data, timeout=120)
-    duration = time.time() - start
-    
-    print(f"Status Code: {response.status_code}")
-    print(f"Duration: {duration:.2f}s")
-    
-    try:
-        print("Response JSON:")
-        print(json.dumps(response.json(), indent=2))
-    except:
-        print("Response text:", response.text)
-
-except Exception as e:
-    print(f"Request failed: {e}")
+pdfs = glob.glob(os.path.join('downloads', '*VR1UJZKWZPW124195*.pdf'))
+if not pdfs:
+    print("No PDFs found.")
+else:
+    for f in pdfs:
+        try:
+            print(f"Parsing {f}...")
+            res = pdf_parser.extract_maintenance_services(f)
+            print("Extracted Data:", json.dumps(res, indent=2))
+        except Exception as e:
+            print("Error:", e)

@@ -421,7 +421,7 @@
             <input type="text" class="search-bar" id="vinSearch" placeholder="Search VIN or Status..."
                 onkeyup="searchHistory()">
             <div id="client-errors"
-                style="color:#cf6679; font-family:monospace; margin-bottom:10px; display:none; border:1px solid #cf6679; padding:5px; border-radius:4px; background:rgba(207, 102, 121, 0.1);">
+                style="color:#cf6679; font-family:monospace; margin-bottom:10px; display:none; border:1px solid #cf6679; padding:5px; border-radius:4px; background:rgba(207, 102, 121, 0.1); max-height:100px; overflow-y:auto;">
             </div>
             <div style="max-height: 400px; overflow-y: auto;">
                 <table id="historyTable">
@@ -945,7 +945,7 @@
 
         async function fetchLogs() {
             try {
-                const res = await fetch('/api/logs?lines=50', { headers: API_HEADERS });
+                const res = await fetch('/api/logs?lines=50&t=' + Date.now(), { headers: API_HEADERS });
                 if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
                 const data = await res.json();
 
@@ -987,7 +987,7 @@
         }
         async function fetchStats() {
             try {
-                const res = await fetch('/api/stats', { headers: API_HEADERS });
+                const res = await fetch('/api/stats?t=' + Date.now(), { headers: API_HEADERS });
                 if (!res.ok) {
                     if (res.status === 401) logout();
                     return;

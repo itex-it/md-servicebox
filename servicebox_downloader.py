@@ -33,9 +33,12 @@ class ServiceBoxDownloader:
         while time.time() - start_time < timeout_sec:
             for f in target_page.frames:
                 try:
-                    loc = f.get_by_text(text_pattern).first
-                    if await loc.is_visible(timeout=500):
-                        return f, loc
+                    locs = f.get_by_text(text_pattern)
+                    count = await locs.count()
+                    for i in range(count):
+                        nth_loc = locs.nth(i)
+                        if await nth_loc.is_visible():
+                            return f, nth_loc
                 except:
                     pass
             await asyncio.sleep(0.5)
@@ -46,9 +49,12 @@ class ServiceBoxDownloader:
         while time.time() - start_time < timeout_sec:
             for f in target_page.frames:
                 try:
-                    loc = f.locator(selector).first
-                    if await loc.is_visible(timeout=500):
-                        return f, loc
+                    locs = f.locator(selector)
+                    count = await locs.count()
+                    for i in range(count):
+                        nth_loc = locs.nth(i)
+                        if await nth_loc.is_visible():
+                            return f, nth_loc
                 except:
                     pass
             await asyncio.sleep(0.5)
