@@ -494,7 +494,15 @@ def get_logs(lines: int = 100):
             tail = collections.deque(f, maxlen=lines)
             log_list = list(tail)
             if not log_list:
-                log_list = ["Log file currently has 0 bytes. Waiting for new logs..."]
+                try:
+                    import os
+                    cwd = os.getcwd()
+                    stat = os.stat(log_file)
+                    dir_list = ", ".join(os.listdir("."))
+                    debug_msg = f"Log file ({log_file}) has 0 bytes. CWD: {cwd} | Stat: size={stat.st_size}, mode={stat.st_mode} | Files: {dir_list}"
+                except Exception as ex:
+                    debug_msg = f"Log file is empty and stat failed: {ex}"
+                log_list = [debug_msg]
             return {"logs": log_list}
     except Exception as e:
         return {"logs": [f"Error reading logs: {str(e)}"]}
