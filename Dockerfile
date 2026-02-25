@@ -25,5 +25,5 @@ COPY . .
 # Port freigeben, auf dem Uvicorn lauscht
 EXPOSE 8005
 
-# Den FastAPI Server mit Uvicorn starten
-CMD ["uvicorn", "servicebox_api:app", "--host", "0.0.0.0", "--port", "8005", "--workers", "1"]
+# Den FastAPI Server mit Uvicorn starten (plus automatischer Datenbank-Migration!)
+CMD ["sh", "-c", "python migrate_db.py && uvicorn servicebox_api:app --host 0.0.0.0 --port 8005 --workers 1"]

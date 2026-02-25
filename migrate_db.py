@@ -1,22 +1,20 @@
-import sqlite3
-import os
+import database
+from sqlalchemy import text
 
-db_path = "servicebox_history.db"
-if not os.path.exists(db_path):
-    print(f"Database {db_path} not found.")
-    exit(1)
+def run_migration():
+    print(f"Running migration on {database.engine.url}...")
+    try:
+        with database.engine.begin() as conn:
+            if "postgres" in str(database.engine.url):
+                conn.execute(text("ALTER TABLE jobs ADD COLUMN recalls_only BOOLEAN DEFAULT FALSE;"))
+            else:
+                conn.execute(text("ALTER TABLE jobs ADD COLUMN recalls_only BOOLEAN DEFAULT 0;"))
+            print("Column 'recalls_only' added successfully.")
+    except Exception as e:
+        if "duplicate column" in str(e).lower() or "already exists" in str(e).lower() or "has no column" in str(e).lower():
+            print("Column 'recalls_only' already exists.")
+        else:
+            print(f"Database Error during migration: {e}")
 
-conn = sqlite3.connect(db_path)
-cursor = conn.cursor()
-
-try:
-    cursor.execute("ALTER TABLE jobs ADD COLUMN recalls_only BOOLEAN DEFAULT 0;")
-    print("Column added successfully.")
-except sqlite3.OperationalError as e:
-    if "duplicate column name" in str(e).lower():
-        print("Column already exists.")
-    else:
-        print(f"Database Error: {e}")
-
-conn.commit()
-conn.close()
+if __name__ == "__main__":
+    run_migration()
