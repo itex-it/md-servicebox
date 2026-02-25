@@ -476,7 +476,18 @@ class ServiceBoxDownloader:
                 # -----------------------
 
                 # Navigate to Documentation
-                # We no longer eagerly evaluate `goTo` as the UI automatically places us on DOKUMENTATION
+                logger.info("Forcing navigation to 'Dokumentation' tab...")
+                try:
+                    for f in target_page.frames:
+                        try:
+                            # Evaluate the function that switches to the Documentation view
+                            await f.evaluate("if(typeof goTo === 'function') { goTo('synthesePE', '1', '1'); }")
+                        except:
+                            pass
+                    # Give it a tiny bit of time to render the new sidebar if it was hidden
+                    await asyncio.sleep(1)
+                except Exception as e:
+                    logger.warning(f"Failed to navigate to Documentation explicitly: {e}")
                 
                 logger.info("Searching for Wartungspläne across all frames...")
                 wartung_frame, wartung_link = await self._find_in_frames(target_page, re.compile("Wartungspläne", re.IGNORECASE), timeout_sec=int(self.timeout/1000))
