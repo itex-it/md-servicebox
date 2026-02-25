@@ -9,7 +9,7 @@ from pydantic import BaseModel
 import uvicorn
 from servicebox_downloader import ServiceBoxDownloader
 import database
-from typing import List
+from typing import List, Optional
 import config_loader
 from config_loader import config, logger
 from job_manager import job_manager
@@ -49,6 +49,11 @@ async def root():
 @app.get("/dashboard")
 async def dashboard():
     return RedirectResponse(url="/static/dashboard.html")
+
+@app.get("/api")
+async def api_docs_redirect():
+    """Redirects /api to the auto-generated Swagger UI docs."""
+    return RedirectResponse(url="/docs")
 
 # Auth Schemes
 
@@ -266,6 +271,19 @@ def list_jobs(status: str = None, vin: str = None, limit: int = 50):
     """
     jobs = job_manager.get_all_jobs(status, vin, limit)
     return {"jobs": jobs}
+
+class BulkJobRequest(BaseModel):
+    job_ids: List[str]
+
+@app.delete("/api/jobs/bulk", dependencies=[Depends(require_admin)])
+def delete_bulk_jobs(request: BulkJobRequest):
+    """
+    Deletes multiple jobs.
+    """
+    count = job_manager.delete_jobs(request.job_ids)
+    if count == 0:
+        raise HTTPException(status_code=404, detail="No jobs found to delete")
+    return {"success": True, "deleted_count": count}
 
 @app.delete("/api/jobs/{job_id}", dependencies=[Depends(require_admin)])
 def delete_job(job_id: str):

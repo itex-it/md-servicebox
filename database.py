@@ -174,6 +174,13 @@ def delete_job(job_id):
         db.commit()
         return result
 
+def delete_jobs(job_ids: list):
+    if not job_ids: return 0
+    with SessionLocal() as db:
+        result = db.query(Job).filter(Job.job_id.in_(job_ids)).delete(synchronize_session=False)
+        db.commit()
+        return result
+
 def reset_job(job_id):
     with SessionLocal() as db:
         job = db.query(Job).filter(Job.job_id == job_id).first()

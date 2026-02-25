@@ -534,7 +534,11 @@
                 </div>
                 <div class="form-group">
                     <label>API Auth Key (X-Auth-Token für externe Tools wie n8n)</label>
-                    <input type="text" id="cfg_auth_token">
+                    <input type="password" id="cfg_auth_token" placeholder="********">
+                </div>
+                <div class="form-group">
+                    <label>Viewer Token (Read-Only Token für Dashboard Logins)</label>
+                    <input type="password" id="cfg_viewer_token" placeholder="********">
                 </div>
 
                 <hr style="border-color: rgba(255,255,255,0.1); margin: 20px 0;">
@@ -1167,10 +1171,23 @@
             if (checked.length === 0) return;
             if (!confirm(`Wirklich ${checked.length} Aufträge löschen?`)) return;
 
-            for (let cb of checked) {
-                try { await fetch(`/api/jobs/${cb.value}`, { method: 'DELETE', headers: API_HEADERS }); } catch (e) { }
+            const job_ids = Array.from(checked).map(cb => cb.value);
+
+            try {
+                const res = await fetch(`/api/jobs/bulk`, {
+                    method: 'DELETE',
+                    headers: { 'Content-Type': 'application/json', ...API_HEADERS },
+                    body: JSON.stringify({ job_ids: job_ids })
+                });
+                if (res.ok) {
+                    fetchJobs();
+                } else {
+                    const err = await res.json();
+                    alert("Löschen fehlgeschlagen: " + err.detail);
+                }
+            } catch (e) {
+                alert("Fehler: " + e.message);
             }
-            fetchJobs();
         }
 
         async function retrySelectedJobs() {
@@ -1394,6 +1411,7 @@
                     document.getElementById('cfg_paperless_url').value = cfg.paperless_url || '';
                     document.getElementById('cfg_paperless_token').value = cfg.paperless_token || '********';
                     document.getElementById('cfg_auth_token').value = cfg.auth_token || '********';
+                    document.getElementById('cfg_viewer_token').value = cfg.viewer_token || '********';
                 }
             } catch (e) {
                 alert("Settings fetch failed");
@@ -1411,6 +1429,7 @@
                 paperless_url: document.getElementById('cfg_paperless_url').value,
                 paperless_token: document.getElementById('cfg_paperless_token').value,
                 auth_token: document.getElementById('cfg_auth_token').value,
+                viewer_token: document.getElementById('cfg_viewer_token').value,
             };
 
             try {

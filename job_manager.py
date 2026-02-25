@@ -194,6 +194,9 @@ class JobManager:
     def delete_job(self, job_id):
         return database.delete_job(job_id)
 
+    def delete_jobs(self, job_ids):
+        return database.delete_jobs(job_ids)
+
     def retry_job(self, job_id):
         job = database.get_job(job_id)
         if job:
