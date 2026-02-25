@@ -310,8 +310,8 @@ class ServiceBoxDownloader:
 
                 # Validate Dashboard or capture explicit errors
                 try:
-                    error_locator = working_frame.locator("text=Die eingegebene VIN/VIS ist unbekannt")
-                    dashboard_locator = working_frame.locator("text=DOKUMENTATION")
+                    error_locator = working_frame.locator("text=Die eingegebene VIN/VIS ist unbekannt").first
+                    dashboard_locator = working_frame.locator("text=DOKUMENTATION").first
                     
                     wait_seconds = int(self.timeout / 1000) + 1
                     for _ in range(wait_seconds):
