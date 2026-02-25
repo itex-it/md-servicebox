@@ -256,7 +256,7 @@ class ServiceBoxDownloader:
                 
                 login_url = config.get("login_url")
                 print(f"Navigating to {login_url}...")
-                await page.goto(login_url)
+                await page.goto(login_url, timeout=self.timeout)
                 
                 # Determine main page (popup or current)
                 # Determine main page (popup or current)
