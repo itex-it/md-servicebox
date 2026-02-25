@@ -1,6 +1,6 @@
 import datetime
 from sqlalchemy import (
-    Column, Integer, String, Text, DateTime, Index
+    Column, Integer, String, Text, DateTime, Index, Boolean
 )
 from sqlalchemy.orm import declarative_base
 
@@ -45,6 +45,7 @@ class Job(Base):
     result = Column(Text)
     error_message = Column(Text)
     retry_count = Column(Integer, default=0)
+    recalls_only = Column(Boolean, default=False)
 
 class MaintenanceService(Base):
     __tablename__ = 'maintenance_services'

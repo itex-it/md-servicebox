@@ -9,9 +9,10 @@ from pydantic import BaseModel
 import uvicorn
 from servicebox_downloader import ServiceBoxDownloader
 import database
-from typing import List, Optional
+import json
 import config_loader
 from config_loader import config, logger
+from typing import List, Optional
 from job_manager import job_manager
 import json
 from paperless_client import paperless_client
@@ -116,6 +117,8 @@ class VinRequest(BaseModel):
     force_refresh: bool = False
     priority: bool = False
     severe_conditions: bool = False
+    refresh_reason: Optional[str] = None
+
 
 class RetryRequest(BaseModel):
     job_ids: List[str] = []
@@ -240,29 +243,114 @@ def get_vehicle_metadata(vin: str):
     if not cached:
          raise HTTPException(status_code=404, detail="Vehicle not found in cache")
     
+    from datetime import datetime
+    data_age_days = 0
+    data_age_category = "fresh"
+    
+    if cached.get('last_updated'):
+        try:
+            last_dt = datetime.strptime(cached['last_updated'].split('.')[0], "%Y-%m-%d %H:%M:%S")
+            data_age_days = (datetime.utcnow() - last_dt).days
+            if data_age_days > 90:
+                data_age_category = "stale"
+            elif data_age_days >= 30:
+                data_age_category = "aging"
+        except:
+            pass
+
     return {
         "vin": vin,
         "last_updated": cached['last_updated'],
         "status": cached['status'],
-        "has_cache": True
+        "has_cache": True,
+        "data_age_days": data_age_days,
+        "data_age_category": data_age_category
+    }
+
+class BatchVinRequest(BaseModel):
+    vins: List[str]
+    max_age_days: int = 30
+
+@app.post("/api/vehicles/batch-status", dependencies=[Depends(get_api_key)])
+def batch_vehicle_status(request: BatchVinRequest):
+    """
+    Returns the cache status and data age for a list of VINs.
+    Useful for nightly bulk checks without triggering downloads.
+    """
+    results = []
+    from datetime import datetime
+    now = datetime.utcnow()
+    
+    for vin in request.vins:
+        cached = database.get_latest_vehicle(vin)
+        if not cached:
+            results.append({"vin": vin, "has_cache": False})
+            continue
+            
+        data_age_days = 0
+        if cached.get('last_updated'):
+            try:
+                last_dt = datetime.strptime(cached['last_updated'].split('.')[0], "%Y-%m-%d %H:%M:%S")
+                data_age_days = (now - last_dt).days
+            except:
+                pass
+                
+        results.append({
+            "vin": vin,
+            "has_cache": True,
+            "data_age_days": data_age_days,
+            "status": cached['status'],
+            "needs_refresh": data_age_days > request.max_age_days
+        })
+        
+    return {"results": results}
+
+@app.get("/api/vehicle/{vin}/recalls/refresh", dependencies=[Depends(get_api_key)])
+def refresh_vehicle_recalls(vin: str, background_tasks: BackgroundTasks):
+    """
+    Lightweight endpoint to purely check for new recalls using Playwright,
+    without downloading or parsing the maintenance PDF.
+    """
+    # Simply push a high priority job that sets a specific flag
+    # We extend the job request to tell the worker "recalls only"
+    job_id = job_manager.add_job(vin, priority=True, recalls_only=True)
+    
+    return {
+        "success": True,
+        "job_id": job_id,
+        "message": "Recall check queued",
+        "action": "recalls_only"
     }
 
 @app.get("/api/vehicle/{vin}/services", dependencies=[Depends(get_api_key)])
 def get_vehicle_services(vin: str, severe_conditions: bool = False):
     services_raw = database.get_maintenance_services(vin)
+    
+    import downloader_factory
+    brand = downloader_factory.DownloaderFactory.get_brand(vin)
+    
     if not services_raw:
-        raise HTTPException(status_code=404, detail="Maintenance services not found for this VIN")
+        return {
+            "vin": vin, 
+            "services_available": False, 
+            "reason": "manufacturer_not_supported" if brand not in ["Peugeot", "Citroen", "DS"] else "model_not_yet_in_database",
+            "manufacturer": brand,
+            "services": []
+        }
         
     services = []
     for srv in services_raw:
         services.append({
-            "type": srv['type'],
-            "description": srv['description'],
-            "interval_standard": srv['interval_standard'],
-            "interval_severe": srv['interval_severe']
+            "type": srv.get('type'),
+            "description": srv.get('description'),
+            "interval_standard": srv.get('interval_standard'),
+            "interval_severe": srv.get('interval_severe'),
+            "interval_type": srv.get('interval_type', 'unknown'),
+            "km": srv.get('km'),
+            "years": srv.get('years')
         })
         
-    return {"vin": vin, "services": services}
+    return {"vin": vin, "services_available": True, "services": services}
 
 @app.get("/api/jobs", dependencies=[Depends(get_api_key)])
 def list_jobs(status: str = None, vin: str = None, limit: int = 50):

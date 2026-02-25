@@ -83,11 +83,11 @@ class JobManager:
                 
                 # Dynamic Routing based on Brand (WMI)
                 downloader = DownloaderFactory.get_downloader(job['vin'])
-                
                 # Execute Download with error catching
                 result = {}
                 try:
-                    result = self.loop.run_until_complete(downloader.download_maintenance_plan(job['vin']))
+                    recalls_only = job.get('recalls_only', False)
+                    result = self.loop.run_until_complete(downloader.download_maintenance_plan(job['vin'], recalls_only=recalls_only))
                 except Exception as eval_err:
                     logger.error(f"Playwright/Downloader Engine Error for VIN {job['vin']}: {eval_err}")
                     result = {"success": False, "error": str(eval_err)}
@@ -165,12 +165,12 @@ class JobManager:
                 logger.error(f"Worker Loop Error: {e}")
                 time.sleep(5)
                 
-    def add_job(self, vin, priority=False):
+    def add_job(self, vin, priority=False, recalls_only=False):
         job_id = str(uuid.uuid4())
         p_val = 1 if priority else 0
         database.create_job(job_id, vin, p_val)
         
-        job_dict = {"job_id": job_id, "vin": vin, "priority": p_val}
+        job_dict = {"job_id": job_id, "vin": vin, "priority": p_val, "recalls_only": recalls_only}
         
         if queue_manager.enabled:
             queue_manager.push_job(job_dict, priority=p_val)

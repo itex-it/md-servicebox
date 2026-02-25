@@ -174,9 +174,10 @@ class ServiceBoxDownloader:
             
         return data
 
-    async def download_maintenance_plan(self, vin: str):
+    async def download_maintenance_plan(self, vin: str, recalls_only: bool = False):
         """
         Attempts to download the maintenance plan for the given VIN.
+        If recalls_only is True, skips PDF generation and returns early.
         Returns a dictionary with status and details.
         """
         start_time = time.time()
@@ -414,6 +415,14 @@ class ServiceBoxDownloader:
 
                 result["vehicle_data"] = vehicle_data
                 logger.info(f"Extracted data: {vehicle_data}")
+                
+                if recalls_only:
+                    logger.info("recalls_only flag is set. Exiting download early.")
+                    result["success"] = True
+                    result["message"] = "Recalls extracted successfully"
+                    result["duration_seconds"] = round(time.time() - start_time, 2)
+                    return result
+                    
                 # -----------------------
 
                 # Navigate to Documentation

@@ -120,9 +120,9 @@ def get_latest_vehicle(vin):
         except: pass
         return item
 
-def create_job(job_id, vin, priority=0):
+def create_job(job_id, vin, priority=0, recalls_only=False):
     with SessionLocal() as db:
-        job = Job(job_id=job_id, vin=vin, status='queued', priority=priority)
+        job = Job(job_id=job_id, vin=vin, status='queued', priority=priority, recalls_only=recalls_only)
         db.add(job)
         db.commit()
 
@@ -268,6 +268,10 @@ def get_history(vin=None, search_term=None, limit=100):
             except Exception as e: 
                 print(f"[DB] Error loading recall_data for {(item.get('vin'))}: {e}")
                 item['recalls_data'] = {}
+                
+            # Calculate completeness flags for clients
+            item['data_complete'] = bool(item.get('warranty_data') and item.get('lcdv_data') and item.get('recalls_data'))
+            item['pdf_ready'] = bool(item.get('file_path') and not str(item.get('file_path')).startswith('paperless:PROCESSING'))
                 
             history.append(item)
             

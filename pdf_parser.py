@@ -1,5 +1,35 @@
 import pdfplumber
 import os
+import re
+
+def parse_interval_string(text: str) -> dict:
+    text = text.lower().strip()
+    result = {
+        "interval_type": "unknown",
+        "km": None,
+        "years": None
+    }
+    
+    if not text:
+        return result
+        
+    if "dann alle" in text:
+        result["interval_type"] = "first_then"
+    elif "alle " in text or text.startswith("alle"):
+        result["interval_type"] = "recurring"
+    else:
+        result["interval_type"] = "once"
+        
+    km_match = re.search(r'(\d+)\s*km', text)
+    if km_match:
+        result["km"] = int(km_match.group(1))
+        
+    year_match = re.search(r'(\d+)\s*jahr', text)
+    if year_match:
+        result["years"] = int(year_match.group(1))
+        
+    return result
+
 
 def extract_maintenance_services(pdf_path: str) -> list:
     """
@@ -49,12 +79,27 @@ def extract_maintenance_services(pdf_path: str) -> list:
                         if len(row[0]) > 100:
                             continue
                             
-                        services.append({
+                        interval_standard = row[1].replace('\n', ' ')
+                        interval_severe = row[2].replace('\n', ' ') if len(row) > 2 and row[2] else ""
+                        
+                        parsed = parse_interval_string(interval_standard)
+                        parsed_severe = parse_interval_string(interval_severe) if interval_severe else {}
+                        
+                        svc = {
                             'type': current_type,
                             'description': row[0].replace('\n', ' '),
-                            'interval_standard': row[1].replace('\n', ' '),
-                            'interval_severe': row[2].replace('\n', ' ') if len(row) > 2 and row[2] else ""
-                        })
+                            'interval_standard': interval_standard,
+                            'interval_severe': interval_severe,
+                            'interval_type': parsed.get('interval_type', 'unknown'),
+                            'km': parsed.get('km'),
+                            'years': parsed.get('years')
+                        }
+                        
+                        if interval_severe:
+                            svc['severe_km'] = parsed_severe.get('km')
+                            svc['severe_years'] = parsed_severe.get('years')
+                            
+                        services.append(svc)
                         
     except Exception as e:
         print(f"Error parsing PDF {pdf_path}: {str(e)}")
