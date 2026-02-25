@@ -650,6 +650,23 @@ class ServiceBoxDownloader:
                     trace_path = os.path.join(trace_dir, trace_filename)
                     await context.tracing.stop(path=trace_path)
                     logger.error(f"Saved failure trace to {trace_path}")
+                    
+                    # Cleanup old traces to prevent disk-full errors
+                    try:
+                        import glob
+                        trace_files = glob.glob(os.path.join(trace_dir, "trace_*.zip"))
+                        if len(trace_files) > 5:
+                            # Sort by modified time, oldest first
+                            trace_files.sort(key=os.path.getmtime)
+                            # Delete until only 5 are left
+                            for old_trace in trace_files[:-5]:
+                                try:
+                                    os.remove(old_trace)
+                                except:
+                                    pass
+                    except Exception as cleanup_e:
+                        logger.error(f"Could not cleanly delete old traces: {cleanup_e}")
+                        
                 except Exception as trace_e:
                     logger.error(f"Could not save trace: {trace_e}")
                     
