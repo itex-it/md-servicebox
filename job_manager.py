@@ -147,7 +147,7 @@ class JobManager:
                     self.consecutive_requests += 1
                     self.consecutive_errors = 0 # Reset error count
                 else:
-                    error_msg = result.get('error', 'Unknown Error')
+                    error_msg = result.get('message') or result.get('error') or 'Unknown Error'
                     database.update_job_status(job['job_id'], 'error', error_message=error_msg)
                     logger.error(f"Job {job['job_id']} Failed: {error_msg}")
                     

@@ -492,7 +492,10 @@ def get_logs(lines: int = 100):
         with open(log_file, "r", encoding="utf-8") as f:
             # Efficient tail implementation using deque
             tail = collections.deque(f, maxlen=lines)
-            return {"logs": list(tail)}
+            log_list = list(tail)
+            if not log_list:
+                log_list = ["Log file currently has 0 bytes. Waiting for new logs..."]
+            return {"logs": log_list}
     except Exception as e:
         return {"logs": [f"Error reading logs: {str(e)}"]}
 
