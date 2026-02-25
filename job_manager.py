@@ -200,7 +200,18 @@ class JobManager:
         return database.delete_job(job_id)
 
     def delete_jobs(self, job_ids):
-        return database.delete_jobs(job_ids)
+        # Chunking to prevent SQLite's maximum variable limit in IN clauses
+        chunk_size = 900
+        total_deleted = 0
+        for i in range(0, len(job_ids), chunk_size):
+            chunk = job_ids[i:i + chunk_size]
+            total_deleted += database.delete_jobs(chunk)
+            
+        if queue_manager.enabled:
+            # Note: Hard to sync selectively with Redis without a scan, 
+            # simplest is to just let the worker drop them when popped if not in DB.
+            pass
+        return total_deleted
 
     def retry_job(self, job_id):
         job = database.get_job(job_id)

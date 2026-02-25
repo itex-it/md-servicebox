@@ -387,7 +387,7 @@
         </div>
 
         <!-- ACTIVE & QUEUED JOBS TABLE -->
-        <div class="card" id="jobsCard" style="display: none; margin-top: 20px;">
+        <div class="card" id="jobsCard" style="display: block; margin-top: 20px;">
             <div style="display:flex; justify-content:space-between; align-items:center;">
                 <h3>Live Queue & Active Tasks</h3>
                 <input type="text" class="search-bar" id="liveVinSearch" placeholder="Search VIN..."
@@ -935,13 +935,17 @@
                     }
                 });
             } catch (e) {
-                showClientError("History Fetch Error: " + e.message);
+                // Ignore JSON parse errors from 502/503 HTML gateway pages
+                if (!e.message.includes('Unexpected token')) {
+                    showClientError("History Fetch Error: " + e.message);
+                }
             }
         }
 
         async function fetchLogs() {
             try {
                 const res = await fetch('/api/logs?lines=50', { headers: API_HEADERS });
+                if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
                 const data = await res.json();
 
                 const term = document.getElementById('logTerminal');
@@ -1054,7 +1058,9 @@
                     }
                 }
 
-            } catch (e) { showClientError("Stats fetch error: " + e.message); }
+            } catch (e) {
+                // Ignore HTML parsing errors from proxies
+            }
         }
 
         setInterval(fetchStats, 2000);
@@ -1104,15 +1110,8 @@
 
                 tbody.innerHTML = '';
 
-                if (activeJobs.length === 0 && currentJobFilter === 'all') {
-                    jobsCard.style.display = 'none';
-                    return;
-                }
-
-                jobsCard.style.display = 'block';
-
                 if (activeJobs.length === 0) {
-                    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; padding: 20px; color:#888;">No jobs found in this category.</td></tr>';
+                    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; padding: 20px; color:#888;">No jobs found in this category.</td></tr>';
                     return;
                 }
 
