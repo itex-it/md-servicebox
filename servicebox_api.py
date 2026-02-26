@@ -428,11 +428,26 @@ async def get_vehicle_history(vin: str):
 @app.get("/api/stats", dependencies=[Depends(get_api_key)])
 async def get_stats():
     """
-    Returns KPIs for the dashboard.
+    Returns KPIs for the dashboard, including system resource usage.
     """
     stats = database.get_stats()
     processing = stats.get("queue", {}).get("processing", 0)
     stats["active_tasks"] = ACTIVE_TASKS + processing
+    
+    # Add System Health Stats
+    import shutil
+    try:
+        total, used, free = shutil.disk_usage("/")
+        stats["system"] = {
+            "disk_total_gb": round(total / (2**30), 2),
+            "disk_used_gb": round(used / (2**30), 2),
+            "disk_free_gb": round(free / (2**30), 2),
+            "disk_percent": round((used / total) * 100, 1)
+        }
+    except Exception as e:
+        logger.error(f"Failed to read disk usage: {e}")
+        stats["system"] = {"error": "Could not read disk stats"}
+        
     return stats
 
 @app.get("/api/config", dependencies=[Depends(require_admin)])

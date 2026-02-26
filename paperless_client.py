@@ -38,14 +38,18 @@ class PaperlessClient:
             res_create.raise_for_status()
             return res_create.json()["id"]
             
+        except requests.exceptions.RequestException as e:
+            logger.error(f"Failed to get/create Paperless tag '{tag_name}' (Network error): {e}")
+            return "OFFLINE"
         except Exception as e:
             logger.error(f"Failed to get/create Paperless tag '{tag_name}': {e}")
             return None
 
-    def upload_document(self, file_path: str, title: str, tags: list = None) -> int:
+    def upload_document(self, file_path: str, title: str, tags: list = None):
         """
         Uploads a PDF to Paperless-ngx.
-        Returns the new Paperless Document ID on success, or None on failure.
+        Returns the new Paperless Document ID or 'PROCESSING_IN_PAPERLESS' on success,
+        'OFFLINE' if Paperless is unreachable, or None on failure.
         """
         if not self.enabled or not self.url or not self.token:
             logger.info("Paperless integration is disabled or not fully configured.")
@@ -61,6 +65,8 @@ class PaperlessClient:
             if tags:
                 for tag_name in tags:
                     t_id = self._get_or_create_tag(tag_name)
+                    if t_id == "OFFLINE":
+                        return "OFFLINE"
                     if t_id:
                         tag_ids.append(t_id)
                         
@@ -73,37 +79,27 @@ class PaperlessClient:
             with open(file_path, "rb") as f:
                 files = {"document": (os.path.basename(file_path), f, "application/pdf")}
                 
-                # Note: Content-Type header should NOT be set manually when using the `files` parameter, 
-                # requests handles the multipart boundary automatically.
-                res = requests.post(f"{self.url}/api/documents/post_document/", headers=self.headers, data=data, files=files)
+                res = requests.post(f"{self.url}/api/documents/post_document/", headers=self.headers, data=data, files=files, timeout=30)
                 
             res.raise_for_status()
             
-            # The post_document API often returns a task ID rather than the document ID directly if async.
-            # Usually it looks like: "OK" or a task identifier. Paperless processes it in the background.
-            # Due to this async nature, getting the immediate document ID can be tricky.
-            # Let's inspect the response to see if an ID is returned directly. 
             response_data = res.text
             logger.info(f"Successfully pushed to Paperless. Response: {response_data}")
             
-            # Since post_document is asynchronous, we need to poll for the document ID using the file name or return the task ID.
-            # For simplicity, if we don't get the ID instantly, we will have to search for the document by title.
-            # Or use a fallback. We will return a placeholder for now and implement searching.
-            
-            # Wait a moment for paperless to injest it before searching
             import time
             time.sleep(2)
             
-            search_res = requests.get(f"{self.url}/api/documents/", headers=self.headers, params={"title__iexact": title})
+            search_res = requests.get(f"{self.url}/api/documents/", headers=self.headers, params={"title__iexact": title}, timeout=10)
             
             if search_res.ok and search_res.json().get("count", 0) > 0:
                  doc_id = search_res.json()["results"][0]["id"]
                  return doc_id
             
-            # Fallback if not immediately searchable (e.g. background queue)
-            # We return a negative "Task" ID flag or a string to indicate it's processing
             return "PROCESSING_IN_PAPERLESS"
             
+        except requests.exceptions.RequestException as e:
+            logger.error(f"Paperless is unreachable (Network/Timeout): {e}")
+            return "OFFLINE"
         except Exception as e:
             logger.error(f"Paperless Upload Error: {e}")
             return None

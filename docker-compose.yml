@@ -12,12 +12,24 @@ services:
     networks:
       - default
       - caddy
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "20m"
+        max-file: "3"
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:8005/docs" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
     labels:
       caddy: servicebox.autoleeb.at
       caddy.reverse_proxy: "{{upstreams 8005}}"
     volumes:
-      # Wir speichern die Datenbank in einem echten, sicheren Docker Volume
-      - servicebox_db:/app/data
+      # Configurations, Database, Logs, and Downloads as simple local folders (Bind Mounts)
+      - ./config:/app/config
+      - ./data:/app/data
+      - ./logs:/app/logs
       - ./downloads:/app/downloads
       - ./debug:/app/debug
     environment:
@@ -43,4 +55,3 @@ networks:
 
 volumes:
   redis_data:
-  servicebox_db:

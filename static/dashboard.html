@@ -325,6 +325,22 @@
                 <canvas id="extractionsChart"></canvas>
             </div>
         </div>
+        <div class="card" id="serverHealthCard">
+            <h3>Server Health</h3>
+            <div style="display:flex; flex-direction:column; gap:8px; margin-top:10px;">
+                <div>
+                    <div style="display:flex; justify-content:space-between; font-size:0.85em; margin-bottom:2px;">
+                        <span>Disk Space</span>
+                        <span id="diskSubtext" style="color:var(--text-secondary)">-</span>
+                    </div>
+                    <div style="width:100%; background:#333; height:8px; border-radius:4px; overflow:hidden;">
+                        <div id="diskBar"
+                            style="height:100%; width:0%; background:var(--success-color); transition: width 0.3s, background 0.3s;">
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
 
     <!-- MAIN CONTENT GRID -->
@@ -1006,6 +1022,25 @@
                     if (elProcessing) elProcessing.innerText = stats.queue.processing || 0;
                     if (elFailed) elFailed.innerText = stats.queue.error || 0;
                     if (elCompleted) elCompleted.innerText = stats.queue.success || 0;
+                }
+
+                // Update Server Health
+                if (stats.system && !stats.system.error) {
+                    const diskBar = document.getElementById('diskBar');
+                    const diskSubtext = document.getElementById('diskSubtext');
+
+                    if (diskBar && diskSubtext) {
+                        const pct = stats.system.disk_percent;
+                        diskBar.style.width = pct + '%';
+                        diskSubtext.innerText = `${stats.system.disk_used_gb} GB / ${stats.system.disk_total_gb} GB (${pct}%)`;
+
+                        if (pct > 90) diskBar.style.background = 'var(--error-color)';
+                        else if (pct > 75) diskBar.style.background = '#FFC107'; // yellow
+                        else diskBar.style.background = 'var(--success-color)';
+                    }
+                } else if (stats.system && stats.system.error) {
+                    const diskSubtext = document.getElementById('diskSubtext');
+                    if (diskSubtext) diskSubtext.innerText = 'Error loading stats';
                 }
 
                 // --- Chart.js Update Logic ---

@@ -9,8 +9,16 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-CONFIG_FILE = "config.json"
-LOG_FILE = "servicebox.log"
+CONFIG_DIR = "config"
+CONFIG_FILE = os.path.join(CONFIG_DIR, "config.json")
+LOG_DIR = "logs"
+LOG_FILE = os.path.join(LOG_DIR, "servicebox.log")
+
+# Ensure required directories exist
+os.makedirs(CONFIG_DIR, exist_ok=True)
+os.makedirs(LOG_DIR, exist_ok=True)
+os.makedirs("data", exist_ok=True)  # Ensure data directory exists for the database
+os.makedirs("downloads", exist_ok=True)
 
 def load_config():
     """Loads configuration from JSON file."""
@@ -22,7 +30,9 @@ def load_config():
             "headless": False,
             "log_level": "INFO",
             "output_dir": "downloads",
-            "viewer_token": "VIEWER_ONLY_TOKEN"
+            "viewer_token": "VIEWER_ONLY_TOKEN",
+            "db_connection": "sqlite:///data/servicebox_history.db",
+            "redis_url": "redis://redis:6379/0"
         }
     
     with open(CONFIG_FILE, 'r') as f:

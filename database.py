@@ -6,16 +6,16 @@ from sqlalchemy.orm import sessionmaker
 
 from models import Base, VehicleHistory, Vehicle, Job, MaintenanceService
 
-CONFIG_FILE = "config.json"
+CONFIG_FILE = "config/config.json"
 
 def get_db_url():
     try:
         with open(CONFIG_FILE, 'r') as f:
             config = json.load(f)
             # Default to SQLite if missing
-            return config.get('db_connection', 'sqlite:///servicebox_history.db')
+            return config.get('db_connection', 'sqlite:///data/servicebox_history.db')
     except Exception:
-        return 'sqlite:///servicebox_history.db'
+        return 'sqlite:///data/servicebox_history.db'
 
 # Create engine, use connect_args for SQLite to avoid thread issues just in case
 url = get_db_url()

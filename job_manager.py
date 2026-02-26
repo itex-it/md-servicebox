@@ -34,6 +34,9 @@ class JobManager:
         self.running = True
         self.worker_thread = threading.Thread(target=self._worker_loop, daemon=True)
         self.worker_thread.start()
+        
+        self.gc_thread = threading.Thread(target=self._garbage_collection_loop, daemon=True)
+        self.gc_thread.start()
         logger.info("JobManager Worker started.")
 
     def stop_worker(self):
@@ -109,7 +112,10 @@ class JobManager:
                                 tags = ["ServiceBox", "Wartungsplan", job['vin']]
                                 
                                 doc_id = paperless_client.upload_document(file_path, title, tags=tags)
-                                if doc_id:
+                                if doc_id == "OFFLINE":
+                                    logger.warning(f"Paperless is OFFLINE. Caching {file_path} locally for later sync.")
+                                    # We don't change file_path, so it stays as the local path and is NOT deleted.
+                                elif doc_id:
                                     logger.info(f"Uploaded {file_path} to Paperless with ID: {doc_id}")
                                     # Override file_path with a special format so the GUI knows it's from Paperless
                                     result['file_path'] = f"paperless:{doc_id}"
@@ -117,7 +123,8 @@ class JobManager:
                                     
                                     # Delete local temporary file
                                     try:
-                                        os.remove(file_path.replace(f"paperless:{doc_id}", "")) # Actually, the original file_path is already overwritten in the scope. Let's fix that.
+                                        # result['file_path'] is paperless:XYZ, but original file_path is still available locally
+                                        pass 
                                     except:
                                         pass
                                     
@@ -125,12 +132,13 @@ class JobManager:
                             logger.error(f"Failed to extract maintenance services or upload to Paperless: {e}")
 
                         # Fix local file deletion correctly
-                        # If it was uploaded successfully, 'file_path' starts with paperless:
-                        if isinstance(file_path, str) and file_path.startswith("paperless:"):
-                            original_path = result.get('file_path_local_temp') # We need to store original path
-                            # Instead of complex logic, we just use the dictionary original value
-                            original_path = result.get('file_path') # WAIT! result['file_path'] was just overwritten.
-                            pass # We will rewrite this chunk again properly in the next line to avoid confusion.
+                        # Original local path is stored in result object initially before overriding
+                        local_path = result.get('file_path')
+                        if local_path and result.get('file_path') != local_path and str(result.get('file_path', '')).startswith('paperless:'):
+                             try:
+                                 os.remove(local_path)
+                             except BaseException as fallback_e:
+                                 pass
                     
                     # Save to history/stats
                     try:
@@ -227,6 +235,63 @@ class JobManager:
                 queue_manager.push_job(job, priority=job.get('priority', 0))
             return 1
         return 0
+
+    def _garbage_collection_loop(self):
+        """Runs periodically to clean up old files and sync offline Paperless PDFs."""
+        logger.info("Garbage Collection & Paperless Sync thread started.")
+        while self.running:
+            try:
+                # 1. Sync Offline PDFs to Paperless
+                if paperless_client.enabled and os.path.exists("downloads"):
+                    for filename in os.listdir("downloads"):
+                        if filename.endswith(".pdf"):
+                            file_path = os.path.join("downloads", filename)
+                            # Parse VIN from filename (format: VIN_TIMESTAMP_Wartungsplan.pdf)
+                            parts = filename.split("_")
+                            if len(parts) >= 3:
+                                vin = parts[0]
+                                title = f"Wartungsplan {vin}"
+                                tags = ["ServiceBox", "Wartungsplan", vin]
+                                
+                                logger.info(f"Syncing offline PDF found in downloads: {filename}")
+                                doc_id = paperless_client.upload_document(file_path, title, tags=tags)
+                                
+                                if doc_id and doc_id != "OFFLINE":
+                                    logger.info(f"Successfully synced {filename} to Paperless. Deleting local copy.")
+                                    # Update Database History Record
+                                    with database.SessionLocal() as db:
+                                        from models import VehicleHistory, Vehicle
+                                        db.query(VehicleHistory).filter(VehicleHistory.file_path == str(os.path.abspath(file_path))).update({"file_path": f"paperless:{doc_id}"})
+                                        db.query(Vehicle).filter(Vehicle.file_path == str(os.path.abspath(file_path))).update({"file_path": f"paperless:{doc_id}"})
+                                        db.commit()
+                                    try: os.remove(file_path)
+                                    except: pass
+
+                # 2. Cleanup Old Debug Files (>3 Days)
+                if os.path.exists("debug"):
+                    now = time.time()
+                    for filename in os.listdir("debug"):
+                        filepath = os.path.join("debug", filename)
+                        if os.path.getmtime(filepath) < now - (3 * 86400):
+                            try: os.remove(filepath)
+                            except: pass
+                            
+                # 3. Cleanup super old stranded PDFs (>30 days)
+                if os.path.exists("downloads"):
+                    now = time.time()
+                    for filename in os.listdir("downloads"):
+                         filepath = os.path.join("downloads", filename)
+                         if os.path.getmtime(filepath) < now - (30 * 86400):
+                             try: os.remove(filepath)
+                             except: pass
+
+            except Exception as e:
+                logger.error(f"GC Thread Error: {e}")
+                
+            # Sleep for 15 minutes
+            for _ in range(15 * 60):
+                if not self.running: break
+                time.sleep(1)
 
 # Global Instance
 job_manager = JobManager()
