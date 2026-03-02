@@ -37,6 +37,15 @@ services:
       - REDIS_URL=redis://redis:6379/0
       - DB_CONNECTION=sqlite:////app/data/servicebox_history.db
       - TZ=Europe/Vienna
+    # Playwright/Chromium needs sufficient shared memory (avoids /dev/shm out-of-space crashes)
+    shm_size: '2gb'
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 2G
+        reservations:
+          memory: 1G
 
   redis:
     image: redis:alpine
