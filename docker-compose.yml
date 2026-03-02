@@ -26,12 +26,12 @@ services:
       caddy: servicebox.autoleeb.at
       caddy.reverse_proxy: "{{upstreams 8005}}"
     volumes:
-      # Configurations, Database, Logs, and Downloads as simple local folders (Bind Mounts)
-      - ./config:/app/config
-      - ./data:/app/data
-      - ./logs:/app/logs
-      - ./downloads:/app/downloads
-      - ./debug:/app/debug
+      # Configurations, Database, Logs, and Downloads as Persistent Named Volumes
+      - sb_config_data:/app/config
+      - sb_app_data:/app/data
+      - sb_logs_data:/app/logs
+      - sb_downloads_data:/app/downloads
+      - sb_debug_data:/app/debug
     environment:
       # Optional: Hier koennen Config-Werte ueberschrieben werden.
       - REDIS_URL=redis://redis:6379/0
@@ -45,7 +45,7 @@ services:
     networks:
       - default
     volumes:
-      - redis_data:/data
+      - sb_redis_data:/data
     command: redis-server --appendonly yes
 
 networks:
@@ -54,4 +54,9 @@ networks:
     external: true
 
 volumes:
-  redis_data:
+  sb_config_data:
+  sb_app_data:
+  sb_logs_data:
+  sb_downloads_data:
+  sb_debug_data:
+  sb_redis_data:
