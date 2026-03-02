@@ -86,11 +86,18 @@ class JobManager:
                 
                 # Dynamic Routing based on Brand (WMI)
                 downloader = DownloaderFactory.get_downloader(job['vin'])
+                
+                def progress_cb(msg):
+                    try:
+                        database.update_job_progress(job['job_id'], msg)
+                    except Exception as e:
+                        pass # Non-critical failure
+                
                 # Execute Download with error catching
                 result = {}
                 try:
                     recalls_only = job.get('recalls_only', False)
-                    result = self.loop.run_until_complete(downloader.download_maintenance_plan(job['vin'], recalls_only=recalls_only))
+                    result = self.loop.run_until_complete(downloader.download_maintenance_plan(job['vin'], recalls_only=recalls_only, progress_callback=progress_cb))
                 except Exception as eval_err:
                     logger.error(f"Playwright/Downloader Engine Error for VIN {job['vin']}: {eval_err}")
                     result = {"success": False, "error": str(eval_err)}

@@ -3,7 +3,8 @@ import os
 import re
 import time
 import base64
-from playwright.async_api import async_playwright, Page
+from playwright.async_api import async_playwright, Page, Frame
+from typing import Dict, Any, List, Optional
 from bs4 import BeautifulSoup
 from config_loader import config, logger
 
@@ -66,7 +67,7 @@ class ServiceBoxDownloader:
         Refactored for robustness to handle dynamic fields.
         """
         soup = BeautifulSoup(html_content, 'html.parser')
-        data = {
+        data: Dict[str, Any] = {
             "warranty": {},
             "lcdv": {},
             "recalls": {
@@ -206,15 +207,20 @@ class ServiceBoxDownloader:
             
         return data
 
-    async def download_maintenance_plan(self, vin: str, recalls_only: bool = False):
+    async def download_maintenance_plan(self, vin: str, recalls_only: bool = False, progress_callback=None):
         """
         Attempts to download the maintenance plan for the given VIN.
         If recalls_only is True, skips PDF generation and returns early.
         Returns a dictionary with status and details.
         """
+        def notify(msg):
+            if progress_callback:
+                progress_callback(msg)
+
         start_time = time.time()
         logger.info(f"[ServiceBoxDownloader] Starting download for VIN: {vin}")
-        result = {
+        notify("Starting browser...")
+        result: Dict[str, Any] = {
             "success": False,
             "vin": vin,
             "file_path": None,
@@ -265,30 +271,11 @@ class ServiceBoxDownloader:
             try:
                 page = await context.new_page()
                 
-                # --- RESOURCE BLOCKING OPTIMIZATION ---
-                # Block unnecessary assets to speed up loading and reduce timeout risks
-                blocked_resource_types = ['image', 'media', 'font', 'stylesheet'] # Sometimes stylesheets are needed, but we try blocking them to see if the DOM still evaluates properly for scraping. Actually, better keep stylesheet for stability in some complex SPAs.
-                blocked_resource_types = ['image', 'media', 'font'] 
-                
-                async def intercept_route(route):
-                    req = route.request
-                    if req.resource_type in blocked_resource_types:
-                        await route.abort()
-                        return
-                    
-                    # Block common trackers and heavy unnecessary scripts based on URL keywords
-                    url = req.url.lower()
-                    if any(tracker in url for tracker in ['google-analytics', 'googletagmanager', 'facebook', 'hotjar', 'pixel']):
-                        await route.abort()
-                        return
-                        
-                    await route.continue_()
-                
-                await page.route("**/*", intercept_route)
-                # --------------------------------------
+                # Resource blocking removed to ensure full SPA layout stability.
                 
                 login_url = config.get("login_url")
                 print(f"Navigating to {login_url}...")
+                notify("Navigating to Login URL...")
                 await page.goto(login_url, timeout=self.timeout)
                 
                 # Determine main page (popup or current)
@@ -319,6 +306,7 @@ class ServiceBoxDownloader:
 
                 # Enter VIN
                 logger.info(f"Attempting to enter VIN: {vin}")
+                notify("Entering VIN...")
                 vin_selector = "#short-vin"
                 if await working_frame.query_selector(vin_selector):
                     await working_frame.evaluate(f"document.querySelector('{vin_selector}').removeAttribute('disabled')")
@@ -368,6 +356,7 @@ class ServiceBoxDownloader:
 
                 # --- EXTRACTION STEP ---
                 logger.info("Dashboard loaded. Extracting vehicle data (initial)...")
+                notify("Extracting vehicle data...")
                 content = await working_frame.content()
                 vehicle_data = self.extract_vehicle_data(content)
                 
@@ -380,6 +369,7 @@ class ServiceBoxDownloader:
                 
                 if recall_count > 0:
                     logger.info(f"Detected {recall_count} recalls. Clicking tab to extract details...")
+                    notify("Extracting detailed recalls...")
                     try:
                         # Click the tab
                         # Selector: anchor with text matching "Überprüfungsaktion"
@@ -404,8 +394,8 @@ class ServiceBoxDownloader:
                                     break
                             
                             if recall_table:
-                                details = []
-                                active_codes = []
+                                details: List[Dict[str, Any]] = []
+                                active_codes: List[str] = []
                                 # Iterate rows (skipping header)
                                 rows = recall_table.find_all('tr')
                                 for row in rows:
@@ -476,20 +466,56 @@ class ServiceBoxDownloader:
                 # -----------------------
 
                 # Navigate to Documentation
-                logger.info("Forcing navigation to 'Dokumentation' tab...")
+                logger.info("Navigating to 'Dokumentation' tab via UI clicks...")
+                notify("Navigating to Maintenance Documentation...")
                 try:
-                    for f in target_page.frames:
+                    doc_link = working_frame.locator("text=DOKUMENTATION").first
+                    if await doc_link.is_visible():
+                        await doc_link.click(force=True)
+                        await working_frame.wait_for_timeout(2000)
+                        
+                        # Click "Documentation technique" using JS evaluation to bypass strict Playwright visibility checks
+                        clicked = False
                         try:
-                            # Evaluate the function that switches to the Documentation view
-                            await f.evaluate("if(typeof goTo === 'function') { goTo('synthesePE', '1', '1'); }")
-                        except:
-                            pass
-                    # Give it a tiny bit of time to render the new sidebar if it was hidden
-                    await asyncio.sleep(1)
+                            # Use locator().all() instead of element_handles, and text_content() which bypasses CSS rendering
+                            links = await working_frame.locator("a").all()
+                            logger.info(f"Dumping {len(links)} links for debugging...")
+                            dumped_texts = []
+                            for lnk in links:
+                                text = await lnk.text_content()
+                                if text: 
+                                    text_clean = re.sub(r'\s+', ' ', text.strip()).lower()
+                                    dumped_texts.append(text.strip())
+                                    
+                                    # Very loose matching to ensure we catch it, print repr for debugging
+                                    if "technique" in text_clean or "dokumentation" in text_clean:
+                                        if ("documentation technique" in text_clean) or ("technische dokumentation" in text_clean) or ("dokumentation citro" in text_clean) or ("dokumentation peugeot" in text_clean) or ("dokumentation ds" in text_clean) or ("dokumentation opel" in text_clean):
+                                            # Avoid clicking instructional documentation links
+                                            if "was sollte eine did-a" not in text_clean and "verkaufsdokumentation" not in text_clean:
+                                                await lnk.evaluate("el => el.click()")
+                                                logger.info(f"Clicked submenu via JS: {text.strip()}")
+                                                clicked = True
+                                                await asyncio.sleep(2)
+                                                break
+                            if not clicked:
+                                logger.warning(f"Dumped links: {dumped_texts}")
+                        except Exception as inner_e:
+                            logger.warning(f"Failed to find/click via handles: {inner_e}")
+                            
+                        if not clicked:
+                            logger.warning("Documentation technique submenu not found or clickable.")
+                    else:
+                        logger.warning("DOKUMENTATION tab not visible. Trying legacy goTo fallback...")
+                        for f in target_page.frames:
+                            try:
+                                await f.evaluate("if(typeof goTo === 'function') { goTo('synthesePE', '1', '1'); }")
+                            except: pass
+                        await asyncio.sleep(1)
                 except Exception as e:
                     logger.warning(f"Failed to navigate to Documentation explicitly: {e}")
                 
                 logger.info("Searching for Wartungspläne across all frames...")
+                notify("Searching for Wartungspläne...")
                 wartung_frame, wartung_link = await self._find_in_frames(target_page, re.compile("Wartungspläne", re.IGNORECASE), timeout_sec=int(self.timeout/1000))
                 
                 if wartung_link:
@@ -498,6 +524,12 @@ class ServiceBoxDownloader:
                         await wartung_frame.wait_for_load_state('networkidle', timeout=self.short_timeout)
                     except: pass
                 else:
+                    # Take screenshot for debugging
+                    try:
+                        await target_page.screenshot(path=os.path.join(self.output_dir, f"debug_wartungsplaene_{vin}.png"), full_page=True)
+                        logger.info(f"Saved debug screenshot for {vin}")
+                    except Exception as ss_e:
+                        logger.error(f"Failed to save debug screenshot: {ss_e}")
                     result["success"] = False
                     result["message"] = "Timeout waiting for 'Wartungspläne'"
                     return result
@@ -579,6 +611,7 @@ class ServiceBoxDownloader:
                                 await asyncio.sleep(1)
                             
                             logger.info(f"Final Popup URL: {url}")
+                            notify("Downloading Maintenance PDF...")
                             
                             if not url or not url.startswith("http"):
                                 try:
@@ -607,6 +640,7 @@ class ServiceBoxDownloader:
                                     result["message"] = "PDF Downloaded successfully"
                                 else:
                                     # CDP Fallback
+                                    notify("Generating PDF via CDP fallback...")
                                     cdp = await popup_page.context.new_cdp_session(popup_page)
                                     await popup_page.wait_for_timeout(2000)
                                     res = await cdp.send("Page.printToPDF", {"format": "A4", "printBackground": True})

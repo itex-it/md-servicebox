@@ -1159,7 +1159,15 @@
 
                     let statusColor = '#bbb';
                     let statusText = job.status;
-                    if (job.status === 'processing') { statusColor = '#03dac6'; statusText = '⚙ Processing'; }
+                    let subStatusHtml = '';
+
+                    if (job.status === 'processing') {
+                        statusColor = '#03dac6';
+                        statusText = '⚙ Processing';
+                        if (job.progress_message) {
+                            subStatusHtml = `<div style="font-size:0.85em; color:var(--text-secondary); margin-top:2px;">↳ ${job.progress_message}</div>`;
+                        }
+                    }
                     if (job.status === 'queued') { statusColor = '#bb86fc'; statusText = '⏳ Queued'; }
                     if (job.status === 'error') { statusColor = '#cf6679'; statusText = '❌ Error'; }
 
@@ -1178,6 +1186,7 @@
                         <td style="padding: 8px 0; border-bottom: 1px solid #333; vertical-align: top; font-size: 0.9em; color:#ddd;">${localDate}</td>
                         <td style="padding: 8px 0; border-bottom: 1px solid #333; vertical-align: top;">
                             <span style="color:${statusColor}; font-weight:bold;">${statusText}</span>
+                            ${subStatusHtml}
                             ${errorHtml}
                         </td>
                         <td style="padding: 8px 0; border-bottom: 1px solid #333; font-family:monospace; color:var(--accent-color); vertical-align: top;">${job.vin}</td>

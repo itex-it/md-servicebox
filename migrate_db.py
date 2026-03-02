@@ -14,7 +14,17 @@ def run_migration():
         if "duplicate column" in str(e).lower() or "already exists" in str(e).lower() or "has no column" in str(e).lower():
             print("Column 'recalls_only' already exists.")
         else:
-            print(f"Database Error during migration: {e}")
+            print(f"Database Error during migration (recalls_only): {e}")
+
+    try:
+        with database.engine.begin() as conn:
+            conn.execute(text("ALTER TABLE jobs ADD COLUMN progress_message TEXT DEFAULT '';"))
+            print("Column 'progress_message' added successfully.")
+    except Exception as e:
+        if "duplicate column" in str(e).lower() or "already exists" in str(e).lower() or "has no column" in str(e).lower():
+            print("Column 'progress_message' already exists.")
+        else:
+            print(f"Database Error during migration (progress_message): {e}")
 
 if __name__ == "__main__":
     run_migration()

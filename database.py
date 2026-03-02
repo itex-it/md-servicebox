@@ -138,6 +138,14 @@ def get_job(job_id):
         if d.get('updated_at'): d['updated_at'] = str(d['updated_at'])
         return d
 
+def update_job_progress(job_id, message):
+    with SessionLocal() as db:
+        job = db.query(Job).filter(Job.job_id == job_id).first()
+        if job:
+            job.progress_message = message
+            job.updated_at = datetime.utcnow()
+            db.commit()
+
 def update_job_status(job_id, status, result=None, error_message=None):
     with SessionLocal() as db:
         job = db.query(Job).filter(Job.job_id == job_id).first()

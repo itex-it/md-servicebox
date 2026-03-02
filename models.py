@@ -46,6 +46,7 @@ class Job(Base):
     error_message = Column(Text)
     retry_count = Column(Integer, default=0)
     recalls_only = Column(Boolean, default=False)
+    progress_message = Column(Text, default='')
 
 class MaintenanceService(Base):
     __tablename__ = 'maintenance_services'
