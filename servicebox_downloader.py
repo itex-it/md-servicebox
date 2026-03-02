@@ -240,8 +240,10 @@ class ServiceBoxDownloader:
                     launch_args.append("--headless=new")
                     playwright_headless = False
                 else:
-                    # Linux/Docker: Must use native headless mode to avoid X11 errors
-                    pass
+                    # Linux/Docker: Must use native headless mode to avoid X11 errors.
+                    # Strip any potential conflicting arguments to guarantee pure headless launch.
+                    launch_args = []
+                    playwright_headless = True
             
             # Proxy implementation
             proxy_config = config.get("proxy", {})
