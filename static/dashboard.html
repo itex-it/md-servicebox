@@ -291,6 +291,8 @@
         <div>
             <h1 style="margin: 0 0 5px 0; font-size: 1.5rem;">ServiceBox Cockpit</h1>
             <span class="status-badge status-online">SYSTEM ONLINE</span>
+            <span id="version-badge"
+                style="margin-left: 8px; padding: 3px 8px; border-radius: 12px; font-size: 0.72rem; font-weight: bold; background: rgba(187,134,252,0.12); color: var(--accent-color); border: 1px solid var(--accent-color); font-family: monospace; opacity: 0.75;">v–</span>
         </div>
         <div class="controls-section">
             <button class="btn btn-primary admin-only" onclick="openSettingsModal()">⚙ Settings</button>
@@ -1015,6 +1017,8 @@
                     badge.className = 'status-badge status-online';
                     badge.innerText = 'SYSTEM ONLINE';
                 }
+                const vbadge = document.getElementById('version-badge');
+                if (vbadge && stats.version) vbadge.innerText = 'v' + stats.version;
 
                 if (document.getElementById('kpi-total')) document.getElementById('kpi-total').innerText = stats.total_downloads;
                 if (document.getElementById('kpi-success')) document.getElementById('kpi-success').innerText = stats.success_rate + '%';

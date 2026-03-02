@@ -18,7 +18,7 @@ import json
 from paperless_client import paperless_client
 import requests
 
-app = FastAPI(title="ServiceBox API", version="1.1")
+app = FastAPI(title="ServiceBox API", version="1.2.0")
 
 # Allow CORS
 app.add_middleware(
@@ -433,6 +433,7 @@ async def get_stats():
     stats = database.get_stats()
     processing = stats.get("queue", {}).get("processing", 0)
     stats["active_tasks"] = ACTIVE_TASKS + processing
+    stats["version"] = app.version
     
     # Add System Health Stats
     import shutil
