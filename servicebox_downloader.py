@@ -535,7 +535,9 @@ class ServiceBoxDownloader:
                 else:
                     # Take screenshot for debugging
                     try:
-                        await target_page.screenshot(path=os.path.join(self.output_dir, f"debug_wartungsplaene_{vin}.png"), full_page=True)
+                        debug_dir = os.path.join(os.getcwd(), "debug")
+                        os.makedirs(debug_dir, exist_ok=True)
+                        await target_page.screenshot(path=os.path.join(debug_dir, f"debug_wartungsplaene_{vin}.png"), full_page=True)
                         logger.info(f"Saved debug screenshot for {vin}")
                     except Exception as ss_e:
                         logger.error(f"Failed to save debug screenshot: {ss_e}")

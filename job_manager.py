@@ -14,7 +14,6 @@ class JobManager:
     def __init__(self):
         self.running = False
         self.worker_thread = None
-        self.loop = None
         
         # Safety Mechanisms
         self.consecutive_requests = 0
@@ -44,10 +43,9 @@ class JobManager:
         logger.info("JobManager Worker stopping...")
 
     def _worker_loop(self):
-        # Create a new event loop for this thread (required for Playwright/Asyncio)
-        self.loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(self.loop)
-        
+        # Each download job gets a completely fresh, isolated asyncio event loop
+        # via asyncio.run(). Do NOT create a shared loop here — on Linux/Docker,
+        # a global loop persists across iterations and corrupts Playwright's driver.
         while self.running:
             try:
                 # 1. Check Panic Mode
