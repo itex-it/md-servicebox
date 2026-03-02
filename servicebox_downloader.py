@@ -234,16 +234,16 @@ class ServiceBoxDownloader:
             launch_args = []
             playwright_headless = self.headless
             
-            if self.headless:
-                if os.name == 'nt':
-                    # Windows: Use new headless mode which supports extensions/popups better
+            if os.name == 'nt':
+                # Windows: Use new headless mode which supports extensions/popups better
+                playwright_headless = False
+                if self.headless:
                     launch_args.append("--headless=new")
-                    playwright_headless = False
-                else:
-                    # Linux/Docker: Must use native headless mode to avoid X11 errors.
-                    # Strip any potential conflicting arguments to guarantee pure headless launch.
-                    launch_args = []
-                    playwright_headless = True
+            else:
+                # Linux/Docker: Must use native headless mode to avoid X11 errors.
+                # Unconditionally force True because Docker has no GUI, even if config is blank.
+                launch_args = []
+                playwright_headless = True
             
             # Proxy implementation
             proxy_config = config.get("proxy", {})
