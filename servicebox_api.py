@@ -18,7 +18,7 @@ import json
 from paperless_client import paperless_client
 import requests
 
-app = FastAPI(title="ServiceBox API", version="1.2.0")
+app = FastAPI(title="ServiceBox API", version="1.2.0-master")
 
 # Allow CORS
 app.add_middleware(
