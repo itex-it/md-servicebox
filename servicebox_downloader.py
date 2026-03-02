@@ -242,7 +242,7 @@ class ServiceBoxDownloader:
             else:
                 # Linux/Docker: Must use native headless mode to avoid X11 errors.
                 # Unconditionally force True because Docker has no GUI, even if config is blank.
-                launch_args = []
+                launch_args = ["--disable-dev-shm-usage", "--no-sandbox"]
                 playwright_headless = True
             
             # Proxy implementation
