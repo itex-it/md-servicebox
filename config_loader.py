@@ -30,6 +30,7 @@ def load_config():
             "headless": False,
             "log_level": "INFO",
             "output_dir": "downloads",
+            "auth_token": "SECRET_TOKEN_123",
             "viewer_token": "VIEWER_ONLY_TOKEN",
             "db_connection": "sqlite:///data/servicebox_history.db",
             "redis_url": "redis://redis:6379/0"
