@@ -97,7 +97,13 @@ class JobManager:
                 result = {}
                 try:
                     recalls_only = job.get('recalls_only', False)
-                    result = self.loop.run_until_complete(downloader.download_maintenance_plan(job['vin'], recalls_only=recalls_only, progress_callback=progress_cb))
+                    
+                    # Create a completely fresh event loop strictly for this download to avoid dirty state Driver crashes
+                    async def isolated_run():
+                        return await downloader.download_maintenance_plan(job['vin'], recalls_only=recalls_only, progress_callback=progress_cb)
+                        
+                    result = asyncio.run(isolated_run())
+                    
                 except Exception as eval_err:
                     logger.error(f"Playwright/Downloader Engine Error for VIN {job['vin']}: {eval_err}")
                     result = {"success": False, "error": str(eval_err)}

@@ -498,7 +498,7 @@ def get_logs(lines: int = 100):
     """
     Returns the last N lines of the log file.
     """
-    log_file = "servicebox.log"
+    log_file = os.path.join("logs", "servicebox.log")
     if not os.path.exists(log_file):
         return {"logs": ["Log file not found."]}
         

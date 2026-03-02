@@ -1,13 +1,13 @@
 import requests
 import json
 
-url = "http://localhost:8005/api/maintenance-plan"
+url = "https://servicebox.autoleeb.at/api/maintenance-plan"
 headers = {
     "X-Auth-Token": "SECRET_TOKEN_123",
     "Content-Type": "application/json"
 }
 data = {
-    "vin": "VF3MCYHZRLL006667"
+    "vin": "VF3CCHMZ6HW053698"
 }
 
 print(f"Sending request for VIN: {data['vin']}...")

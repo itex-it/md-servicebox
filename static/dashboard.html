@@ -679,7 +679,7 @@
                         if (row.timestamp) {
                             try {
                                 const dateObj = new Date(row.timestamp.replace(' ', 'T') + "Z");
-                                dateStr = dateObj.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: '2-digit' }) +
+                                dateStr = dateObj.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' }) +
                                     ' <span style="color:#666">' + dateObj.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' }) + '</span>';
                             } catch (e) { dateStr = row.timestamp; }
                         }
@@ -1010,6 +1010,12 @@
                 }
                 const stats = await res.json();
 
+                const badge = document.querySelector('.status-badge');
+                if (badge) {
+                    badge.className = 'status-badge status-online';
+                    badge.innerText = 'SYSTEM ONLINE';
+                }
+
                 if (document.getElementById('kpi-total')) document.getElementById('kpi-total').innerText = stats.total_downloads;
                 if (document.getElementById('kpi-success')) document.getElementById('kpi-success').innerText = stats.success_rate + '%';
 
@@ -1086,9 +1092,9 @@
                     }
                 }
 
-                if (stats.last_activity && document.getElementById('kpi-last')) {
+                if (stats.last_active && document.getElementById('kpi-last')) {
                     // Parse UTC timestamp
-                    let dt = stats.last_activity;
+                    let dt = stats.last_active;
                     if (dt !== "Never") {
                         if (!dt.endsWith('Z')) dt += 'Z';
                         document.getElementById('kpi-last').innerText = new Date(dt).toLocaleString();
@@ -1098,7 +1104,12 @@
                 }
 
             } catch (e) {
-                // Ignore HTML parsing errors from proxies
+                // If fetch completely fails, mark server offline
+                const badge = document.querySelector('.status-badge');
+                if (badge && (e.message.includes('fetch') || e.message.includes('Network'))) {
+                    badge.className = 'status-badge status-offline';
+                    badge.innerText = 'SYSTEM OFFLINE';
+                }
             }
         }
 
@@ -1177,7 +1188,7 @@
                     }
 
                     const isChecked = checkedIds.has(job.job_id) || allSelected ? 'checked' : '';
-                    const localDate = job.created_at ? new Date(job.created_at.replace(' ', 'T') + 'Z').toLocaleString('de-AT', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit' }) : '';
+                    const localDate = job.created_at ? new Date(job.created_at.replace(' ', 'T') + 'Z').toLocaleString('de-AT', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit' }) : '';
 
                     tr.innerHTML = `
                         <td style="padding: 8px 0; border-bottom: 1px solid #333; text-align:center; vertical-align: top;">

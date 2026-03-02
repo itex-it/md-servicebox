@@ -12,7 +12,7 @@ async def main():
     print("Starting download...")
     dl = ServiceBoxDownloader(os.getcwd())
     try:
-        res = await dl.download_maintenance_plan('VF7SH8FP0CT512351')
+        res = await dl.download_maintenance_plan('VF3CCHMZ6HW053698')
         print(f"Result: {res}")
     except Exception as e:
         print(f"Error: {e}")

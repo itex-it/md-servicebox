@@ -25,6 +25,17 @@ def test_portainer_connection():
             print(f"Folgende Docker-Umgebungen (Endpoints) wurden gefunden ({len(endpoints)} StÃ¼ck):")
             for ep in endpoints:
                 print(f" - ID: {ep.get('Id')} | Name: {ep.get('Name')} | Status: {'UP' if ep.get('Status') == 1 else 'DOWN'}")
+            
+            # Fetch stacks
+            r_stacks = requests.get(f"{PORTAINER_URL}/api/stacks", headers=headers, verify=False, timeout=10)
+            # Fetch stacks
+            r_stacks = requests.get(f"{PORTAINER_URL}/api/stacks", headers=headers, verify=False, timeout=10)
+            if r_stacks.status_code == 200:
+                print("\nActive Stacks:")
+                for s in r_stacks.json():
+                    print(f" - ID: {s.get('Id')} | Name: {s.get('Name')}")
+            else:
+                print(f"Error fetching stacks: {r_stacks.status_code}")
         else:
             print(f"\nFEHLER! \u274C Zugriff abgelehnt oder Endpunkt nicht gefunden.")
             print(f"HTTP Status: {response.status_code}")
