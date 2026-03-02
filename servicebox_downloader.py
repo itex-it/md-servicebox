@@ -232,9 +232,16 @@ class ServiceBoxDownloader:
         
         async with async_playwright() as p:
             launch_args = []
+            playwright_headless = self.headless
+            
             if self.headless:
-                # Use new headless mode which supports extensions/popups better on Windows
-                launch_args.append("--headless=new")
+                if os.name == 'nt':
+                    # Windows: Use new headless mode which supports extensions/popups better
+                    launch_args.append("--headless=new")
+                    playwright_headless = False
+                else:
+                    # Linux/Docker: Must use native headless mode to avoid X11 errors
+                    pass
             
             # Proxy implementation
             proxy_config = config.get("proxy", {})
@@ -251,7 +258,7 @@ class ServiceBoxDownloader:
                     playwright_proxy["password"] = proxy_config.get("password")
             
             browser = await p.chromium.launch(
-                headless=False, # We control headless via args for 'new' mode
+                headless=playwright_headless,
                 args=launch_args,
                 proxy=playwright_proxy
             )
