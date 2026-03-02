@@ -282,7 +282,10 @@ class ServiceBoxDownloader:
                 
                 # Resource blocking removed to ensure full SPA layout stability.
                 
-                login_url = config.get("login_url")
+                login_url = config.get("login_url") or "https://servicebox.peugeot.com/"
+                if not login_url:
+                    result["message"] = "Configuration error: login_url is not set in config.json"
+                    return result
                 print(f"Navigating to {login_url}...")
                 notify("Navigating to Login URL...")
                 await page.goto(login_url, timeout=self.timeout)
