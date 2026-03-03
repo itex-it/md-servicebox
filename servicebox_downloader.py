@@ -611,34 +611,37 @@ class ServiceBoxDownloader:
                                         break
                         
                         if popup_page:
-                            # Popup opens as about:blank and navigates async — wait for it to settle
-                            logger.info("Waiting for popup page to load...")
+                            # Wait for the popup to navigate away from about:blank to a real http URL.
+                            # wait_for_url() is the correct Playwright API for this — it waits
+                            # for the page navigation to complete, unlike polling popup_page.url.
+                            logger.info("Waiting for popup to navigate to real URL...")
+                            url = ""
                             try:
-                                await popup_page.wait_for_load_state('domcontentloaded', timeout=self.timeout)
-                            except Exception as load_err:
-                                logger.warning(f"Popup load state wait failed: {load_err}")
-                            
-                            # Wait for valid URL (up to 60s, 2s intervals)
-                            url = "unknown"
-                            logger.info("Waiting for popup URL to settle...")
-                            for i in range(30):
+                                await popup_page.wait_for_url(
+                                    lambda u: u.startswith("http"),
+                                    timeout=self.timeout
+                                )
+                                url = popup_page.url
+                                logger.info(f"Popup navigated to: {url}")
+                            except Exception as nav_err:
+                                logger.warning(f"wait_for_url failed: {nav_err}. Trying JS evaluate fallback...")
+                                # Fallback: try reading URL via JavaScript
                                 try:
-                                    url = popup_page.url
-                                    logger.info(f"Popup URL check {i}: {url}")
-                                    if url and url.startswith("http"):
-                                        break
-                                except Exception as e:
-                                    logger.error(f"Popup URL check error: {e}")
-                                await asyncio.sleep(2)
+                                    url = await popup_page.evaluate("window.location.href")
+                                    logger.info(f"JS fallback URL: {url}")
+                                except Exception as js_err:
+                                    logger.error(f"JS URL fallback also failed: {js_err}")
+                                    url = popup_page.url or ""
                             
-                            logger.info(f"Final Popup URL: {url}")
                             notify("Downloading Maintenance PDF...")
+                            logger.info(f"Final Popup URL: {url}")
                             
                             if not url or not url.startswith("http"):
                                 try:
                                     debug_dir = os.path.join(os.getcwd(), "debug")
                                     os.makedirs(debug_dir, exist_ok=True)
                                     await popup_page.screenshot(path=os.path.join(debug_dir, f"debug_popup_{vin}.png"))
+                                    logger.info(f"Saved popup debug screenshot for {vin}")
                                 except:
                                     pass
                                 result["success"] = False

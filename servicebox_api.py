@@ -23,14 +23,18 @@ import subprocess
 app = FastAPI(title="ServiceBox API", version="1.2.0-master")
 
 # Capture git commit hash at startup for build identification in dashboard
-try:
-    BUILD_HASH = subprocess.check_output(
-        ["git", "rev-parse", "--short", "HEAD"],
-        cwd=os.path.dirname(os.path.abspath(__file__)),
-        stderr=subprocess.DEVNULL
-    ).decode().strip()
-except Exception:
-    BUILD_HASH = "local"
+# BUILD_ID env var is set by Dockerfile ARG GIT_COMMIT (Docker builds).
+# Falls back to subprocess git (local dev) or 'local'.
+BUILD_HASH = os.environ.get("BUILD_ID") or ""
+if not BUILD_HASH or BUILD_HASH == "unknown":
+    try:
+        BUILD_HASH = subprocess.check_output(
+            ["git", "rev-parse", "--short", "HEAD"],
+            cwd=os.path.dirname(os.path.abspath(__file__)),
+            stderr=subprocess.DEVNULL
+        ).decode().strip()
+    except Exception:
+        BUILD_HASH = "local"
 
 # Allow CORS
 app.add_middleware(

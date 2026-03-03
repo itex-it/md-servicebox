@@ -1,6 +1,10 @@
 # Verwenden des offiziellen Playwright-Images (beinhaltet Python 3.10 und alle System-Abhaengigkeiten für Chromium)
 FROM mcr.microsoft.com/playwright/python:v1.41.0-jammy
 
+# Build-time git commit hash (passed via --build-arg GIT_COMMIT=<hash>)
+ARG GIT_COMMIT=unknown
+ENV BUILD_ID=${GIT_COMMIT}
+
 # Umgebungsvariablen für Python einrichten
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
