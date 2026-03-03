@@ -583,106 +583,135 @@ class ServiceBoxDownloader:
                         logger.info("Searching for btnRechercher...")
                         btn_frame, search_btn = await self._find_locator_in_frames(target_page, "#btnRechercher", timeout_sec=int(self.short_timeout/1000))
                         
-                        popup_page = None
+                        # ─────────────────────────────────────────────────────
+                        # PDF DOWNLOAD STRATEGY
+                        # In Docker/Linux headless mode, Chromium triggers a file
+                        # download event on about:blank instead of navigating the
+                        # popup to a PDF URL. We handle BOTH cases:
+                        #  1) Primary: expect_download() - catches the download event
+                        #  2) Fallback: read popup URL and fetch via request
+                        # ─────────────────────────────────────────────────────
+                        timestamp = time.strftime("%Y%m%d_%H%M%S")
+                        filename = os.path.join(self.output_dir, f"{vin}_{timestamp}_Wartungsplan.pdf")
+                        pdf_saved = False
+                        
+                        async def _try_expect_download(click_action):
+                            """Try to capture a download event triggered by click_action."""
+                            try:
+                                async with context.expect_download(timeout=self.timeout) as dl_info:
+                                    await click_action()
+                                dl = await dl_info.value
+                                await dl.save_as(filename)
+                                logger.info(f"PDF downloaded via download event: {filename}")
+                                return True
+                            except Exception as dl_err:
+                                logger.warning(f"expect_download failed: {dl_err}")
+                                return False
+
                         if search_btn:
-                            try:
-                                async with context.expect_page(timeout=self.short_timeout) as popup_info:
-                                    await search_btn.click()
-                                popup_page = await popup_info.value
-                            except:
-                                pass
-                        
-                        if not popup_page:
-                            try:
-                                async with context.expect_page(timeout=self.timeout) as popup_info:
-                                    if btn_frame:
-                                        await btn_frame.evaluate("callActionSynth()")
-                                    else:
-                                        for f in target_page.frames:
-                                            try:
-                                                await f.evaluate("callActionSynth()")
-                                            except: pass
-                                popup_page = await popup_info.value
-                            except:
-                                # Start checking existing pages if popup opening failed
-                                for p in context.pages:
-                                    if "synthesePE" in p.url:
-                                        popup_page = p
-                                        break
-                        
-                        if popup_page:
-                            # Wait for the popup to navigate away from about:blank to a real http URL.
-                            # wait_for_url() is the correct Playwright API for this — it waits
-                            # for the page navigation to complete, unlike polling popup_page.url.
-                            logger.info("Waiting for popup to navigate to real URL...")
-                            url = ""
-                            try:
-                                await popup_page.wait_for_url(
-                                    lambda u: u.startswith("http"),
-                                    timeout=self.timeout
-                                )
-                                url = popup_page.url
-                                logger.info(f"Popup navigated to: {url}")
-                            except Exception as nav_err:
-                                logger.warning(f"wait_for_url failed: {nav_err}. Trying JS evaluate fallback...")
-                                # Fallback: try reading URL via JavaScript
-                                try:
-                                    url = await popup_page.evaluate("window.location.href")
-                                    logger.info(f"JS fallback URL: {url}")
-                                except Exception as js_err:
-                                    logger.error(f"JS URL fallback also failed: {js_err}")
-                                    url = popup_page.url or ""
-                            
                             notify("Downloading Maintenance PDF...")
-                            logger.info(f"Final Popup URL: {url}")
+                            # Primary: try download event approach (works in headless Docker)
+                            pdf_saved = await _try_expect_download(lambda: search_btn.click())
                             
-                            if not url or not url.startswith("http"):
+                            if not pdf_saved:
+                                # Secondary: try opening a popup and reading its URL (works on Windows)
+                                logger.info("Download event not triggered. Trying popup URL approach...")
+                                popup_page = None
                                 try:
-                                    debug_dir = os.path.join(os.getcwd(), "debug")
-                                    os.makedirs(debug_dir, exist_ok=True)
-                                    await popup_page.screenshot(path=os.path.join(debug_dir, f"debug_popup_{vin}.png"))
-                                    logger.info(f"Saved popup debug screenshot for {vin}")
+                                    async with context.expect_page(timeout=self.short_timeout) as popup_info:
+                                        await search_btn.click()
+                                    popup_page = await popup_info.value
                                 except:
                                     pass
-                                result["success"] = False
-                                result["message"] = f"Invalid Popup URL: {url}"
-                                return result
-
-                            try:
-                                api_response = await context.request.get(url)
-                                content_type = api_response.headers.get("content-type", "").lower()
                                 
-                                timestamp = time.strftime("%Y%m%d_%H%M%S")
-                                filename = os.path.join(self.output_dir, f"{vin}_{timestamp}_Wartungsplan.pdf")
+                                if not popup_page:
+                                    # Try callActionSynth JS fallback
+                                    try:
+                                        async with context.expect_page(timeout=self.timeout) as popup_info:
+                                            if btn_frame:
+                                                await btn_frame.evaluate("callActionSynth()")
+                                            else:
+                                                for f in target_page.frames:
+                                                    try:
+                                                        await f.evaluate("callActionSynth()")
+                                                    except: pass
+                                        popup_page = await popup_info.value
+                                    except:
+                                        for p in context.pages:
+                                            if "synthesePE" in p.url:
+                                                popup_page = p
+                                                break
                                 
-                                if "application/pdf" in content_type:
-                                    data = await api_response.body()
-                                    with open(filename, "wb") as f:
-                                        f.write(data)
-                                    result["success"] = True
-                                    result["file_path"] = os.path.abspath(filename)
-                                    result["message"] = "PDF Downloaded successfully"
-                                else:
-                                    # CDP Fallback
-                                    notify("Generating PDF via CDP fallback...")
-                                    cdp = await popup_page.context.new_cdp_session(popup_page)
-                                    await popup_page.wait_for_timeout(2000)
-                                    res = await cdp.send("Page.printToPDF", {"format": "A4", "printBackground": True})
-                                    pdf_data = base64.b64decode(res['data'])
-                                    with open(filename, "wb") as f:
-                                        f.write(pdf_data)
-                                    result["success"] = True
-                                    result["file_path"] = os.path.abspath(filename)
-                                    result["message"] = "PDF Generated via CDP"
+                                if popup_page:
+                                    # Try reading the popup URL
+                                    url = ""
+                                    try:
+                                        await popup_page.wait_for_url(
+                                            lambda u: u.startswith("http"),
+                                            timeout=self.timeout
+                                        )
+                                        url = popup_page.url
+                                        logger.info(f"Popup URL: {url}")
+                                    except:
+                                        try:
+                                            url = await popup_page.evaluate("window.location.href")
+                                        except:
+                                            url = popup_page.url or ""
                                     
-                            except Exception as e:
-                                result["success"] = False
-                                result["message"] = f"Download failed: {str(e)}"
-                                return result
+                                    if url and url.startswith("http"):
+                                        try:
+                                            api_response = await context.request.get(url)
+                                            content_type = api_response.headers.get("content-type", "").lower()
+                                            if "application/pdf" in content_type:
+                                                data = await api_response.body()
+                                                with open(filename, "wb") as f:
+                                                    f.write(data)
+                                                pdf_saved = True
+                                                logger.info("PDF saved via URL fetch")
+                                            else:
+                                                # CDP print fallback
+                                                notify("Generating PDF via CDP...")
+                                                cdp = await popup_page.context.new_cdp_session(popup_page)
+                                                await popup_page.wait_for_timeout(2000)
+                                                res = await cdp.send("Page.printToPDF", {"format": "A4", "printBackground": True})
+                                                pdf_data = base64.b64decode(res['data'])
+                                                with open(filename, "wb") as f:
+                                                    f.write(pdf_data)
+                                                pdf_saved = True
+                                                logger.info("PDF saved via CDP print")
+                                        except Exception as e:
+                                            logger.error(f"URL/CDP fetch failed: {e}")
+                                    else:
+                                        # Last resort: try download event via callActionSynth
+                                        try:
+                                            pdf_saved = await _try_expect_download(
+                                                lambda: btn_frame.evaluate("callActionSynth()") if btn_frame else None
+                                            )
+                                        except:
+                                            pass
                         else:
+                            # No button found — try callActionSynth download directly
+                            notify("Trying direct PDF download via JS...")
+                            pdf_saved = await _try_expect_download(
+                                lambda: btn_frame.evaluate("callActionSynth()") if btn_frame else None
+                            )
+
+                        if pdf_saved:
+                            result["success"] = True
+                            result["file_path"] = os.path.abspath(filename)
+                            result["message"] = "PDF Downloaded successfully"
+                        else:
+                            # Debug screenshot on total failure
+                            try:
+                                debug_dir = os.path.join(os.getcwd(), "debug")
+                                os.makedirs(debug_dir, exist_ok=True)
+                                await target_page.screenshot(path=os.path.join(debug_dir, f"debug_download_fail_{vin}.png"))
+                            except:
+                                pass
                             result["success"] = False
-                            result["message"] = "Failed to open popup"
+                            result["message"] = "PDF download failed: no download event and no valid popup URL"
                             return result
+
                     else:
                         result["success"] = False
                         result["message"] = "'Normale Bedingungen' option not found"
