@@ -18,7 +18,19 @@ import json
 from paperless_client import paperless_client
 import requests
 
+import subprocess
+
 app = FastAPI(title="ServiceBox API", version="1.2.0-master")
+
+# Capture git commit hash at startup for build identification in dashboard
+try:
+    BUILD_HASH = subprocess.check_output(
+        ["git", "rev-parse", "--short", "HEAD"],
+        cwd=os.path.dirname(os.path.abspath(__file__)),
+        stderr=subprocess.DEVNULL
+    ).decode().strip()
+except Exception:
+    BUILD_HASH = "local"
 
 # Allow CORS
 app.add_middleware(
@@ -434,6 +446,7 @@ async def get_stats():
     processing = stats.get("queue", {}).get("processing", 0)
     stats["active_tasks"] = ACTIVE_TASKS + processing
     stats["version"] = app.version
+    stats["build"] = BUILD_HASH
     
     # Add System Health Stats
     import shutil

@@ -1018,7 +1018,11 @@
                     badge.innerText = 'SYSTEM ONLINE';
                 }
                 const vbadge = document.getElementById('version-badge');
-                if (vbadge && stats.version) vbadge.innerText = 'v' + stats.version;
+                if (vbadge) {
+                    const ver = stats.version || '?';
+                    const build = stats.build ? ` · ${stats.build}` : '';
+                    vbadge.innerText = `v${ver}${build}`;
+                }
 
                 if (document.getElementById('kpi-total')) document.getElementById('kpi-total').innerText = stats.total_downloads;
                 if (document.getElementById('kpi-success')) document.getElementById('kpi-success').innerText = stats.success_rate + '%';
