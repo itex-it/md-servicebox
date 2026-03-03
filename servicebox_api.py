@@ -488,29 +488,49 @@ def get_system_config():
     safe_config = config.copy()
     if "password" in safe_config and safe_config["password"]:
         safe_config["password"] = "********"
+    if "paperless_token" in safe_config:
+        safe_config.pop("paperless_token")  # never expose token to frontend
     if "auth_token" in safe_config and len(safe_config["auth_token"]) > 4:
          safe_config["auth_token"] = safe_config["auth_token"][:4] + "***"
     if "viewer_token" in safe_config and len(safe_config["viewer_token"]) > 4:
          safe_config["viewer_token"] = safe_config["viewer_token"][:4] + "***"
+    # Always include paperless_enabled so the UI can show the correct checkbox state
+    safe_config["paperless_enabled"] = config.get("paperless_enabled", False)
     return safe_config
 
 @app.post("/api/config", dependencies=[Depends(require_admin)])
 def update_system_config(req: ConfigUpdateRequest):
     """Updates the config and saves it to disk."""
     from config_loader import save_config
+    from paperless_client import paperless_client as pc
     
     data_to_save = req.config_data.copy()
     
-    # Preserve original password/token if they were sent back as masked
+    # Preserve original password if sent back masked
     if data_to_save.get("password") == "********":
         data_to_save["password"] = config.get("password", "")
-        
+    
+    # Preserve original tokens if sent back masked or not included
     if "auth_token" in data_to_save and data_to_save["auth_token"].endswith("***"):
          data_to_save["auth_token"] = config.get("auth_token", "")
     if "viewer_token" in data_to_save and data_to_save["viewer_token"].endswith("***"):
          data_to_save["viewer_token"] = config.get("viewer_token", "")
+    
+    # Preserve paperless_token if not sent (user left field empty)
+    if not data_to_save.get("paperless_token"):
+        data_to_save["paperless_token"] = config.get("paperless_token", "")
          
     save_config(data_to_save)
+    
+    # Hot-reload paperless_client so uploads start working immediately without restart
+    pc.url = data_to_save.get("paperless_url", "").rstrip("/")
+    if pc.url.endswith("/api"):
+        pc.url = pc.url[:-4]
+    pc.token = data_to_save.get("paperless_token", "")
+    pc.enabled = data_to_save.get("paperless_enabled", False)
+    pc.headers = {"Authorization": f"Token {pc.token}"}
+    logger.info(f"[Config] Paperless hot-reloaded: enabled={pc.enabled}, url={pc.url}")
+    
     return {"success": True, "message": "Configuration saved."}
 
 @app.delete("/api/history/cleanup", dependencies=[Depends(require_admin)])

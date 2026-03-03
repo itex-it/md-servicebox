@@ -553,7 +553,13 @@
                 </div>
                 <div class="form-group">
                     <label>Paperless Token</label>
-                    <input type="password" id="cfg_paperless_token" placeholder="********">
+                    <input type="password" id="cfg_paperless_token" placeholder="Token eingeben...">
+                    <small style="color:#888; font-size:0.8em;">Leer lassen um bestehenden Token zu behalten</small>
+                </div>
+                <div class="form-group" style="display:flex; align-items:center; gap:12px;">
+                    <input type="checkbox" id="cfg_paperless_enabled" style="width:18px; height:18px; cursor:pointer;">
+                    <label for="cfg_paperless_enabled" style="margin:0; cursor:pointer;">Paperless Upload
+                        aktiviert</label>
                 </div>
                 <div class="form-group">
                     <label>API Auth Key (X-Auth-Token für externe Tools wie n8n)</label>
@@ -1553,9 +1559,10 @@
                 if (res.ok) {
                     const cfg = await res.json();
                     document.getElementById('cfg_user_id').value = cfg.user_id || '';
-                    document.getElementById('cfg_password').value = cfg.password || '********'; // visually masked
+                    document.getElementById('cfg_password').value = cfg.password || '********';
                     document.getElementById('cfg_paperless_url').value = cfg.paperless_url || '';
-                    document.getElementById('cfg_paperless_token').value = cfg.paperless_token || '********';
+                    document.getElementById('cfg_paperless_token').value = ''; // never pre-fill token
+                    document.getElementById('cfg_paperless_enabled').checked = cfg.paperless_enabled === true;
                     document.getElementById('cfg_auth_token').value = cfg.auth_token || '********';
                     document.getElementById('cfg_viewer_token').value = cfg.viewer_token || '********';
                 }
@@ -1569,14 +1576,19 @@
         }
 
         async function saveSettings() {
+            const paperlessToken = document.getElementById('cfg_paperless_token').value;
             const payload = {
                 user_id: document.getElementById('cfg_user_id').value,
                 password: document.getElementById('cfg_password').value,
                 paperless_url: document.getElementById('cfg_paperless_url').value,
-                paperless_token: document.getElementById('cfg_paperless_token').value,
+                paperless_enabled: document.getElementById('cfg_paperless_enabled').checked,
                 auth_token: document.getElementById('cfg_auth_token').value,
                 viewer_token: document.getElementById('cfg_viewer_token').value,
             };
+            // Only include paperless_token if the user actually typed something
+            if (paperlessToken && paperlessToken !== '********') {
+                payload.paperless_token = paperlessToken;
+            }
 
             try {
                 const res = await fetch('/api/config', {
