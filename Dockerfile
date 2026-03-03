@@ -14,19 +14,16 @@ COPY requirements.txt .
 # Python-Abhängigkeiten installieren
 RUN pip install --no-cache-dir -r requirements.txt
 
-# (Optional falls Playwright-Browser nachgeladen werden muss, aber das Image hat sie meist schon)
+# Playwright-Browser installieren
 RUN playwright install chromium
 
-# Git installieren (fuer Commit-Hash beim Build-Schritt)
-RUN apt-get update && apt-get install -y --no-install-recommends git && rm -rf /var/lib/apt/lists/*
-
-# Den restlichen Quellcode in das Verzeichnis kopieren (inkl. .git fuer den Commit-Hash)
+# Den restlichen Quellcode in das Verzeichnis kopieren
+# HINWEIS: .git_hash wird als committed Datei mitgeliefert (kein git-Befehl noetig)
+# Portainer klont das Repo ggf. ohne .git-History, daher wird der Hash pre-computed committed.
 COPY . .
 
-# Git-Commit-Hash direkt beim Build extrahieren und in Datei speichern
-# Portainer klont das Repo, daher ist .git im Build-Context verfuegbar
-RUN git -C /app rev-parse --short HEAD > /app/.git_hash 2>/dev/null || echo "unknown" > /app/.git_hash && \
-    echo "Build hash: $(cat /app/.git_hash)"
+# Hash-Datei verifizieren und ausgeben (nur Kontrollausgabe beim Build)
+RUN echo "Build hash: $(cat /app/.git_hash 2>/dev/null || echo 'unknown')"
 
 # Port freigeben, auf dem Uvicorn lauscht
 EXPOSE 8005

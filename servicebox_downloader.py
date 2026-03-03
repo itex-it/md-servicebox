@@ -274,8 +274,13 @@ class ServiceBoxDownloader:
                 accept_downloads=True
             )
             
-            # Start Playwright Tracing for Docker Debugging
-            await context.tracing.start(screenshots=True, snapshots=True, sources=True)
+            # Playwright Tracing — only when debug_tracing is enabled in config
+            # Default: OFF (saves significant RAM, CPU, and disk per download)
+            # Enable via: config.json → "debug_tracing": true
+            _tracing_active = config.get("debug_tracing", False)
+            if _tracing_active:
+                await context.tracing.start(screenshots=True, snapshots=True, sources=True)
+                logger.info("[Tracing] Playwright tracing ENABLED (debug_tracing=true)")
             
             try:
                 page = await context.new_page()
@@ -844,36 +849,31 @@ class ServiceBoxDownloader:
                 traceback.print_exc()
                 result["message"] = f"Automation error: {str(e)}"
                 
-                # Save trace on failure
-                try:
-                    trace_filename = f"trace_{vin}_{int(time.time())}.zip"
-                    # In docker, we'll map /app/debug to ./debug
-                    trace_dir = os.path.join(os.getcwd(), "debug")
-                    if not os.path.exists(trace_dir):
-                        os.makedirs(trace_dir, exist_ok=True)
-                    
-                    trace_path = os.path.join(trace_dir, trace_filename)
-                    await context.tracing.stop(path=trace_path)
-                    logger.error(f"Saved failure trace to {trace_path}")
-                    
-                    # Cleanup old traces to prevent disk-full errors
+                # Save trace on failure — only if tracing was active
+                if _tracing_active:
                     try:
-                        import glob
-                        trace_files = glob.glob(os.path.join(trace_dir, "trace_*.zip"))
-                        if len(trace_files) > 5:
-                            # Sort by modified time, oldest first
-                            trace_files.sort(key=os.path.getmtime)
-                            # Delete until only 5 are left
-                            for old_trace in trace_files[:-5]:
-                                try:
-                                    os.remove(old_trace)
-                                except:
-                                    pass
-                    except Exception as cleanup_e:
-                        logger.error(f"Could not cleanly delete old traces: {cleanup_e}")
+                        trace_filename = f"trace_{vin}_{int(time.time())}.zip"
+                        trace_dir = os.path.join(os.getcwd(), "debug")
+                        os.makedirs(trace_dir, exist_ok=True)
+                        trace_path = os.path.join(trace_dir, trace_filename)
+                        await context.tracing.stop(path=trace_path)
+                        logger.error(f"[Tracing] Failure trace saved to {trace_path}")
                         
-                except Exception as trace_e:
-                    logger.error(f"Could not save trace: {trace_e}")
+                        # Cleanup old traces (keep max 5)
+                        try:
+                            import glob
+                            trace_files = glob.glob(os.path.join(trace_dir, "trace_*.zip"))
+                            if len(trace_files) > 5:
+                                trace_files.sort(key=os.path.getmtime)
+                                for old_trace in trace_files[:-5]:
+                                    try: os.remove(old_trace)
+                                    except: pass
+                        except Exception as cleanup_e:
+                            logger.error(f"[Tracing] Cleanup error: {cleanup_e}")
+                    except Exception as trace_e:
+                        logger.error(f"[Tracing] Could not save trace: {trace_e}")
+                else:
+                    logger.debug("[Tracing] Tracing was disabled, no trace file saved.")
                     
             finally:
                 await browser.close()
