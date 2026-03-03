@@ -185,6 +185,14 @@ class JobManager:
                 time.sleep(5)
                 
     def add_job(self, vin, priority=False, recalls_only=False):
+        # Idempotency check: if a job for this VIN is already queued or processing,
+        # return the existing job ID instead of creating a duplicate.
+        existing_jobs = database.get_jobs(vin=vin, status=None, limit=10)
+        for job in existing_jobs:
+            if job.get('status') in ('queued', 'processing'):
+                logger.info(f"[JobManager] Dedup: Returning existing job {job['job_id']} for VIN {vin} (status={job['status']})")
+                return job['job_id']
+
         job_id = str(uuid.uuid4())
         p_val = 1 if priority else 0
         database.create_job(job_id, vin, p_val)

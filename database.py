@@ -332,42 +332,50 @@ def delete_old_history(days=30):
 def _parse_interval(interval_str: str) -> dict:
     """
     Parses a maintenance interval string into structured fields.
-    Handles formats like:
-      'Alle 30000 km / 2 Jahr(e)'  → {km: 30000, years: 2, interval_type: 'km_and_time'}
-      'Alle 2 Jahr(e)'             → {km: None, years: 2, interval_type: 'time_only'}
-      'Alle 30000 km'              → {km: 30000, years: None, interval_type: 'km_only'}
-      'Progressiv ...'             → {km: None, years: None, interval_type: 'progressive'}
+    Handles formats:
+      'Alle 30000 km / 2 Jahr(e)'                         → km_and_time, km=30000, years=2
+      'Alle 30000 km'                                      → km_only, km=30000
+      'Alle 2 Jahr(e)'                                     → time_only, years=2
+      '90000 km Dann alle 30000 km'                        → progressive, km=90000, repeat_km=30000
+      '120000 km / 4 Jahr(e) Dann alle 30000 km / 2 Jahr(e)' → progressive with repeat
     """
     import re
     if not interval_str:
-        return {"km": None, "years": None, "interval_type": "unknown"}
+        return {"km": None, "years": None, "repeat_km": None, "repeat_years": None, "interval_type": "unknown"}
 
     s = interval_str.strip()
 
-    # Progressive intervals (e.g., "Progressiv ...")
-    if re.search(r'progressiv', s, re.IGNORECASE):
-        return {"km": None, "years": None, "interval_type": "progressive"}
+    def _extract_km(text):
+        m = re.search(r'(\d[\d\.]*?)\s*km', text, re.IGNORECASE)
+        if m:
+            try:
+                return int(m.group(1).replace('.', '').replace(' ', ''))
+            except ValueError:
+                pass
+        return None
 
-    # Extract km — look for digits followed by 'km'
-    km_match = re.search(r'(\d[\d\.\s]*?)\s*km', s, re.IGNORECASE)
-    km = None
-    if km_match:
-        km_raw = km_match.group(1).replace('.', '').replace(' ', '')
-        try:
-            km = int(km_raw)
-        except ValueError:
-            pass
+    def _extract_years(text):
+        m = re.search(r'(\d+)\s*Jahr', text, re.IGNORECASE)
+        if m:
+            try:
+                return int(m.group(1))
+            except ValueError:
+                pass
+        return None
 
-    # Extract years — look for digits followed by 'Jahr' or 'year'
-    year_match = re.search(r'(\d+)\s*Jahr', s, re.IGNORECASE)
-    years = None
-    if year_match:
-        try:
-            years = int(year_match.group(1))
-        except ValueError:
-            pass
+    # Check for 'Dann alle' — progressive pattern
+    dann_parts = re.split(r'Dann alle', s, flags=re.IGNORECASE)
+    if len(dann_parts) == 2:
+        km = _extract_km(dann_parts[0])
+        years = _extract_years(dann_parts[0])
+        repeat_km = _extract_km(dann_parts[1])
+        repeat_years = _extract_years(dann_parts[1])
+        return {"km": km, "years": years, "repeat_km": repeat_km, "repeat_years": repeat_years, "interval_type": "progressive"}
 
-    # Determine interval_type
+    # Simple patterns
+    km = _extract_km(s)
+    years = _extract_years(s)
+
     if km and years:
         interval_type = "km_and_time"
     elif km:
@@ -377,7 +385,7 @@ def _parse_interval(interval_str: str) -> dict:
     else:
         interval_type = "unknown"
 
-    return {"km": km, "years": years, "interval_type": interval_type}
+    return {"km": km, "years": years, "repeat_km": None, "repeat_years": None, "interval_type": interval_type}
 
 
 def save_maintenance_services(vin: str, services: list):
@@ -404,14 +412,21 @@ def get_maintenance_services(vin: str) -> list:
         rows = db.query(MaintenanceService).filter(MaintenanceService.vin == vin).all()
         services = []
         for row in rows:
-            parsed = _parse_interval(row.interval_standard or "")
+            p_std = _parse_interval(row.interval_standard or "")
+            p_sev = _parse_interval(row.interval_severe or "") if row.interval_severe else {}
             services.append({
                 'type': row.operation_type,
                 'description': row.description,
                 'interval_standard': row.interval_standard,
                 'interval_severe': row.interval_severe,
-                'interval_type': parsed['interval_type'],
-                'km': parsed['km'],
-                'years': parsed['years'],
+                'interval_type': p_std['interval_type'],
+                'km': p_std['km'],
+                'years': p_std['years'],
+                'repeat_km': p_std.get('repeat_km'),
+                'repeat_years': p_std.get('repeat_years'),
+                'severe_km': p_sev.get('km'),
+                'severe_years': p_sev.get('years'),
+                'severe_repeat_km': p_sev.get('repeat_km'),
+                'severe_repeat_years': p_sev.get('repeat_years'),
             })
         return services
