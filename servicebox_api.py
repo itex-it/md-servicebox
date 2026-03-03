@@ -20,7 +20,7 @@ import requests
 
 import subprocess
 
-app = FastAPI(title="ServiceBox API", version="1.2.0-master")
+app = FastAPI(title="ServiceBox API", version="1.3.0")
 
 # Capture git commit hash for the dashboard version badge.
 # Priority: 1) .git_hash file written by Dockerfile at build time
