@@ -26,6 +26,9 @@ RUN playwright install chromium
 # Den restlichen Quellcode in das Verzeichnis kopieren
 COPY . .
 
+# Bake the git commit hash into the image as a file (no git needed at runtime)
+RUN echo "${GIT_COMMIT}" > /app/.git_hash
+
 # Port freigeben, auf dem Uvicorn lauscht
 EXPOSE 8005
 
