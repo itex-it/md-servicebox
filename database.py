@@ -329,6 +329,57 @@ def delete_old_history(days=30):
         db.commit()
         return count
 
+def _parse_interval(interval_str: str) -> dict:
+    """
+    Parses a maintenance interval string into structured fields.
+    Handles formats like:
+      'Alle 30000 km / 2 Jahr(e)'  → {km: 30000, years: 2, interval_type: 'km_and_time'}
+      'Alle 2 Jahr(e)'             → {km: None, years: 2, interval_type: 'time_only'}
+      'Alle 30000 km'              → {km: 30000, years: None, interval_type: 'km_only'}
+      'Progressiv ...'             → {km: None, years: None, interval_type: 'progressive'}
+    """
+    import re
+    if not interval_str:
+        return {"km": None, "years": None, "interval_type": "unknown"}
+
+    s = interval_str.strip()
+
+    # Progressive intervals (e.g., "Progressiv ...")
+    if re.search(r'progressiv', s, re.IGNORECASE):
+        return {"km": None, "years": None, "interval_type": "progressive"}
+
+    # Extract km — look for digits followed by 'km'
+    km_match = re.search(r'(\d[\d\.\s]*?)\s*km', s, re.IGNORECASE)
+    km = None
+    if km_match:
+        km_raw = km_match.group(1).replace('.', '').replace(' ', '')
+        try:
+            km = int(km_raw)
+        except ValueError:
+            pass
+
+    # Extract years — look for digits followed by 'Jahr' or 'year'
+    year_match = re.search(r'(\d+)\s*Jahr', s, re.IGNORECASE)
+    years = None
+    if year_match:
+        try:
+            years = int(year_match.group(1))
+        except ValueError:
+            pass
+
+    # Determine interval_type
+    if km and years:
+        interval_type = "km_and_time"
+    elif km:
+        interval_type = "km_only"
+    elif years:
+        interval_type = "time_only"
+    else:
+        interval_type = "unknown"
+
+    return {"km": km, "years": years, "interval_type": interval_type}
+
+
 def save_maintenance_services(vin: str, services: list):
     if not services:
         return
@@ -353,10 +404,14 @@ def get_maintenance_services(vin: str) -> list:
         rows = db.query(MaintenanceService).filter(MaintenanceService.vin == vin).all()
         services = []
         for row in rows:
+            parsed = _parse_interval(row.interval_standard or "")
             services.append({
                 'type': row.operation_type,
                 'description': row.description,
                 'interval_standard': row.interval_standard,
-                'interval_severe': row.interval_severe
+                'interval_severe': row.interval_severe,
+                'interval_type': parsed['interval_type'],
+                'km': parsed['km'],
+                'years': parsed['years'],
             })
         return services
