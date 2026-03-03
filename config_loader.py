@@ -33,11 +33,14 @@ def load_config():
             "auth_token": "SECRET_TOKEN_123",
             "viewer_token": "VIEWER_ONLY_TOKEN",
             "db_connection": "sqlite:///data/servicebox_history.db",
-            "redis_url": "redis://redis:6379/0"
+            "redis_url": "redis://redis:6379/0",
+            "cache_hits": 0
         }
     
     with open(CONFIG_FILE, 'r') as f:
         config_data = json.load(f)
+        if "cache_hits" not in config_data:
+            config_data["cache_hits"] = 0
         
     # Docker / Environment Variable Overrides
     if os.getenv("REDIS_URL"):
@@ -69,6 +72,23 @@ def save_config(new_data: dict):
     # Write back
     with open(CONFIG_FILE, 'w') as f:
         json.dump(current_disk_data, f, indent=4)
+
+def increment_cache_hits():
+    """Increments the persistent cache_hits counter by 1."""
+    global config
+    hits = config.get("cache_hits", 0) + 1
+    config["cache_hits"] = hits
+    
+    # Save only the hits quietly to disk without triggering a full re-save of all other vars
+    if os.path.exists(CONFIG_FILE):
+        try:
+            with open(CONFIG_FILE, 'r') as f:
+                data = json.load(f)
+            data["cache_hits"] = hits
+            with open(CONFIG_FILE, 'w') as f:
+                json.dump(data, f, indent=4)
+        except Exception as e:
+            logger.error(f"Failed to increment cache hits on disk: {e}")
 
 
 def setup_logging(level_name="INFO"):

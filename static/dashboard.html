@@ -326,6 +326,9 @@
             <div style="width: 100px; height: 100px; position:relative">
                 <canvas id="extractionsChart"></canvas>
             </div>
+            <div style="margin-top:10px; font-size:0.85em; color:var(--text-secondary); text-align:center;">
+                <span id="kpi-cache-hits" style="color:var(--success-color); font-weight:bold;">0</span> Cache Hits
+            </div>
         </div>
         <div class="card" id="serverHealthCard">
             <h3>Server Health</h3>
@@ -1032,6 +1035,7 @@
 
                 if (document.getElementById('kpi-total')) document.getElementById('kpi-total').innerText = stats.total_downloads;
                 if (document.getElementById('kpi-success')) document.getElementById('kpi-success').innerText = stats.success_rate + '%';
+                if (document.getElementById('kpi-cache-hits')) document.getElementById('kpi-cache-hits').innerText = stats.cache_hits || 0;
 
                 if (stats.queue) {
                     const elPending = document.getElementById('q-pending');

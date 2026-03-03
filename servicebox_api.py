@@ -11,7 +11,7 @@ from servicebox_downloader import ServiceBoxDownloader
 import database
 import json
 import config_loader
-from config_loader import config, logger
+from config_loader import config, logger, increment_cache_hits
 from typing import List, Optional
 from job_manager import job_manager
 import json
@@ -191,6 +191,8 @@ def get_maintenance_plan(request: VinRequest, background_tasks: BackgroundTasks)
             cached_vehicle = database.get_latest_vehicle(request.vin)
             if cached_vehicle and cached_vehicle.get('file_path') and os.path.exists(cached_vehicle['file_path']):
                 print(f"Using cached data for VIN: {request.vin}")
+                increment_cache_hits()
+                
                 # Construct response similar to downloader result
                 filename = os.path.basename(cached_vehicle['file_path'])
                 download_url = f"/api/files/{filename}"

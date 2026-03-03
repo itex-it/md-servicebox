@@ -3,6 +3,7 @@ import os
 from datetime import datetime, timedelta
 from sqlalchemy import create_engine, select, update, delete, func, desc, or_
 from sqlalchemy.orm import sessionmaker
+import config_loader
 
 from models import Base, VehicleHistory, Vehicle, Job, MaintenanceService
 
@@ -315,6 +316,7 @@ def get_stats(days=30):
         return {
             "total_downloads": total,
             "unique_vins": unique_vins,
+            "cache_hits": config_loader.config.get("cache_hits", 0),
             "last_active": last_active,
             "success_rate": success_rate,
             "queue": {
