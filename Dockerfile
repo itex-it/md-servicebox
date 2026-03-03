@@ -1,10 +1,6 @@
 # Verwenden des offiziellen Playwright-Images (beinhaltet Python 3.10 und alle System-Abhaengigkeiten für Chromium)
 FROM mcr.microsoft.com/playwright/python:v1.41.0-jammy
 
-# Build-time git commit hash (passed via --build-arg GIT_COMMIT=<hash>)
-ARG GIT_COMMIT=unknown
-ENV BUILD_ID=${GIT_COMMIT}
-
 # Umgebungsvariablen für Python einrichten
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
@@ -21,13 +17,13 @@ RUN pip install --no-cache-dir -r requirements.txt
 # (Optional falls Playwright-Browser nachgeladen werden muss, aber das Image hat sie meist schon)
 RUN playwright install chromium
 
-# Wir müssen hier kein apt-get mehr ausführen!
-
-# Den restlichen Quellcode in das Verzeichnis kopieren
+# Den restlichen Quellcode in das Verzeichnis kopieren (inkl. .git fuer den Commit-Hash)
 COPY . .
 
-# Bake the git commit hash into the image as a file (no git needed at runtime)
-RUN echo "${GIT_COMMIT}" > /app/.git_hash
+# Git-Commit-Hash direkt beim Build extrahieren und in Datei speichern
+# Portainer klont das Repo, daher ist .git im Build-Context verfuegbar
+RUN git -C /app rev-parse --short HEAD > /app/.git_hash 2>/dev/null || echo "unknown" > /app/.git_hash && \
+    echo "Build hash: $(cat /app/.git_hash)"
 
 # Port freigeben, auf dem Uvicorn lauscht
 EXPOSE 8005
