@@ -17,6 +17,9 @@ RUN pip install --no-cache-dir -r requirements.txt
 # (Optional falls Playwright-Browser nachgeladen werden muss, aber das Image hat sie meist schon)
 RUN playwright install chromium
 
+# Git installieren (fuer Commit-Hash beim Build-Schritt)
+RUN apt-get update && apt-get install -y --no-install-recommends git && rm -rf /var/lib/apt/lists/*
+
 # Den restlichen Quellcode in das Verzeichnis kopieren (inkl. .git fuer den Commit-Hash)
 COPY . .
 
