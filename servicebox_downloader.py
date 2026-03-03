@@ -611,27 +611,34 @@ class ServiceBoxDownloader:
                                         break
                         
                         if popup_page:
-                            # Wait for valid URL
+                            # Popup opens as about:blank and navigates async — wait for it to settle
+                            logger.info("Waiting for popup page to load...")
+                            try:
+                                await popup_page.wait_for_load_state('domcontentloaded', timeout=self.timeout)
+                            except Exception as load_err:
+                                logger.warning(f"Popup load state wait failed: {load_err}")
+                            
+                            # Wait for valid URL (up to 60s, 2s intervals)
                             url = "unknown"
                             logger.info("Waiting for popup URL to settle...")
                             for i in range(30):
                                 try:
                                     url = popup_page.url
-                                    logger.debug(f"Popup URL check {i}: {url}")
+                                    logger.info(f"Popup URL check {i}: {url}")
                                     if url and url.startswith("http"):
                                         break
                                 except Exception as e:
                                     logger.error(f"Popup URL check error: {e}")
-                                await asyncio.sleep(1)
+                                await asyncio.sleep(2)
                             
                             logger.info(f"Final Popup URL: {url}")
                             notify("Downloading Maintenance PDF...")
                             
                             if not url or not url.startswith("http"):
                                 try:
-                                    # Attempt debug capture
-                                    debug_shot = os.path.join(self.output_dir, f"debug_popup_{vin}.png")
-                                    await popup_page.screenshot(path=debug_shot)
+                                    debug_dir = os.path.join(os.getcwd(), "debug")
+                                    os.makedirs(debug_dir, exist_ok=True)
+                                    await popup_page.screenshot(path=os.path.join(debug_dir, f"debug_popup_{vin}.png"))
                                 except:
                                     pass
                                 result["success"] = False
