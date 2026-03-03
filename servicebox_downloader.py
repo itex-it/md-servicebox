@@ -584,17 +584,50 @@ class ServiceBoxDownloader:
                         btn_frame, search_btn = await self._find_locator_in_frames(target_page, "#btnRechercher", timeout_sec=int(self.short_timeout/1000))
                         
                         # ─────────────────────────────────────────────────────
-                        # PDF DOWNLOAD STRATEGY
-                        # In Docker/Linux headless mode, Chromium triggers a file
-                        # download event on about:blank instead of navigating the
-                        # popup to a PDF URL. We handle BOTH cases:
-                        #  1) Primary: expect_download() - catches the download event
-                        #  2) Fallback: read popup URL and fetch via request
+                        # PDF DOWNLOAD STRATEGY (4 layers, most robust first)
+                        # In Docker/Linux headless mode Chromium may:
+                        #  a) trigger a download event → Strategy 1 (expect_download)
+                        #  b) open a popup to a PDF URL → Strategy 2 (popup URL fetch)
+                        #  c) make a raw network request → Strategy 3 (route intercept)
+                        #  d) call callActionSynth() JS → Strategy 4 (JS + download)
                         # ─────────────────────────────────────────────────────
                         timestamp = time.strftime("%Y%m%d_%H%M%S")
                         filename = os.path.join(self.output_dir, f"{vin}_{timestamp}_Wartungsplan.pdf")
                         pdf_saved = False
-                        
+
+                        # ── Strategy 0: Network-Route Interceptor (headless-safest) ──────
+                        # Register a route handler BEFORE clicking, so any PDF response
+                        # flowing through the browser is caught regardless of how it is
+                        # triggered (download, popup, XHR redirect, etc.)
+                        intercepted_pdf_bytes = []
+
+                        async def _intercept_pdf(route, request):
+                            try:
+                                response = await route.fetch()
+                                ct = response.headers.get("content-type", "").lower()
+                                url_lower = request.url.lower()
+                                if "application/pdf" in ct or url_lower.endswith(".pdf") or "synthesepe" in url_lower:
+                                    body = await response.body()
+                                    if body and len(body) > 1000:  # Sanity: real PDFs > 1KB
+                                        intercepted_pdf_bytes.append(body)
+                                        logger.info(f"[Intercept] PDF captured from network: {request.url[:120]} ({len(body)} bytes)")
+                                        await route.fulfill(response=response)
+                                        return
+                                await route.continue_()
+                            except Exception as intercept_err:
+                                logger.warning(f"[Intercept] Route handler error: {intercept_err}")
+                                try:
+                                    await route.continue_()
+                                except:
+                                    pass
+
+                        # Intercept on all pages in this context
+                        try:
+                            await context.route("**/*", _intercept_pdf)
+                            logger.info("[Intercept] PDF route interceptor registered")
+                        except Exception as route_err:
+                            logger.warning(f"[Intercept] Could not register route: {route_err}")
+
                         async def _try_expect_download(click_action):
                             """Try to capture a download event triggered by click_action."""
                             try:
@@ -610,22 +643,44 @@ class ServiceBoxDownloader:
 
                         if search_btn:
                             notify("Downloading Maintenance PDF...")
-                            # Primary: try download event approach (works in headless Docker)
-                            pdf_saved = await _try_expect_download(lambda: search_btn.click())
-                            
+                            logger.info("[PDF] Strategy 1: expect_download + route intercept")
+
+                            # Strategy 1+0 combined: click + wait for download OR intercept
+                            try:
+                                async with context.expect_download(timeout=self.timeout) as dl_info:
+                                    await search_btn.click()
+                                dl = await dl_info.value
+                                await dl.save_as(filename)
+                                logger.info(f"[PDF] Strategy 1 SUCCESS via download event: {filename}")
+                                pdf_saved = True
+                            except Exception as dl_err:
+                                logger.warning(f"[PDF] Strategy 1 (download event) failed: {dl_err}")
+
+                                # Check if the route interceptor already caught it during the click
+                                if not pdf_saved and intercepted_pdf_bytes:
+                                    try:
+                                        with open(filename, "wb") as f:
+                                            f.write(intercepted_pdf_bytes[0])
+                                        pdf_saved = True
+                                        logger.info(f"[PDF] Strategy 0 SUCCESS via route intercept (caught during S1 click): {filename}")
+                                    except Exception as write_err:
+                                        logger.error(f"[PDF] Could not write intercepted PDF: {write_err}")
+
+                            # Strategy 2: popup URL fetch
                             if not pdf_saved:
-                                # Secondary: try opening a popup and reading its URL (works on Windows)
-                                logger.info("Download event not triggered. Trying popup URL approach...")
+                                logger.info("[PDF] Strategy 2: popup URL approach")
                                 popup_page = None
                                 try:
                                     async with context.expect_page(timeout=self.short_timeout) as popup_info:
                                         await search_btn.click()
                                     popup_page = await popup_info.value
-                                except:
-                                    pass
-                                
+                                    logger.info(f"[PDF] Popup opened: {popup_page.url}")
+                                except Exception as popup_err:
+                                    logger.info(f"[PDF] No popup from button click: {popup_err}")
+
                                 if not popup_page:
-                                    # Try callActionSynth JS fallback
+                                    # Try callActionSynth to open popup
+                                    logger.info("[PDF] Strategy 2b: callActionSynth popup")
                                     try:
                                         async with context.expect_page(timeout=self.timeout) as popup_info:
                                             if btn_frame:
@@ -634,16 +689,20 @@ class ServiceBoxDownloader:
                                                 for f in target_page.frames:
                                                     try:
                                                         await f.evaluate("callActionSynth()")
-                                                    except: pass
+                                                    except:
+                                                        pass
                                         popup_page = await popup_info.value
-                                    except:
+                                        logger.info(f"[PDF] callActionSynth popup: {popup_page.url}")
+                                    except Exception as synth_err:
+                                        logger.info(f"[PDF] callActionSynth no popup: {synth_err}")
+                                        # Check existing pages for synthesePE
                                         for p in context.pages:
-                                            if "synthesePE" in p.url:
+                                            if "synthesePE" in p.url or "pdf" in p.url.lower():
                                                 popup_page = p
+                                                logger.info(f"[PDF] Found existing synth page: {p.url}")
                                                 break
-                                
+
                                 if popup_page:
-                                    # Try reading the popup URL
                                     url = ""
                                     try:
                                         await popup_page.wait_for_url(
@@ -651,26 +710,29 @@ class ServiceBoxDownloader:
                                             timeout=self.timeout
                                         )
                                         url = popup_page.url
-                                        logger.info(f"Popup URL: {url}")
                                     except:
                                         try:
                                             url = await popup_page.evaluate("window.location.href")
                                         except:
                                             url = popup_page.url or ""
-                                    
+
+                                    logger.info(f"[PDF] Popup URL resolved: '{url}'")
+
                                     if url and url.startswith("http"):
                                         try:
                                             api_response = await context.request.get(url)
                                             content_type = api_response.headers.get("content-type", "").lower()
+                                            logger.info(f"[PDF] URL fetch content-type: {content_type}")
                                             if "application/pdf" in content_type:
                                                 data = await api_response.body()
                                                 with open(filename, "wb") as f:
                                                     f.write(data)
                                                 pdf_saved = True
-                                                logger.info("PDF saved via URL fetch")
+                                                logger.info(f"[PDF] Strategy 2 SUCCESS via URL fetch: {filename}")
                                             else:
                                                 # CDP print fallback
                                                 notify("Generating PDF via CDP...")
+                                                logger.info("[PDF] Strategy 2c: CDP printToPDF")
                                                 cdp = await popup_page.context.new_cdp_session(popup_page)
                                                 await popup_page.wait_for_timeout(2000)
                                                 res = await cdp.send("Page.printToPDF", {"format": "A4", "printBackground": True})
@@ -678,23 +740,79 @@ class ServiceBoxDownloader:
                                                 with open(filename, "wb") as f:
                                                     f.write(pdf_data)
                                                 pdf_saved = True
-                                                logger.info("PDF saved via CDP print")
-                                        except Exception as e:
-                                            logger.error(f"URL/CDP fetch failed: {e}")
+                                                logger.info(f"[PDF] Strategy 2c SUCCESS via CDP print: {filename}")
+                                        except Exception as url_err:
+                                            logger.error(f"[PDF] URL/CDP fetch failed: {url_err}")
                                     else:
-                                        # Last resort: try download event via callActionSynth
-                                        try:
-                                            pdf_saved = await _try_expect_download(
-                                                lambda: btn_frame.evaluate("callActionSynth()") if btn_frame else None
-                                            )
-                                        except:
-                                            pass
+                                        logger.warning(f"[PDF] Popup URL invalid ('{url}'), trying S3")
+
+                            # Strategy 3: callActionSynth as download event
+                            if not pdf_saved:
+                                logger.info("[PDF] Strategy 3: callActionSynth + expect_download")
+                                try:
+                                    async with context.expect_download(timeout=self.timeout) as dl_info:
+                                        if btn_frame:
+                                            await btn_frame.evaluate("callActionSynth()")
+                                        else:
+                                            for f in target_page.frames:
+                                                try:
+                                                    await f.evaluate("callActionSynth()")
+                                                    break
+                                                except:
+                                                    pass
+                                    dl = await dl_info.value
+                                    await dl.save_as(filename)
+                                    pdf_saved = True
+                                    logger.info(f"[PDF] Strategy 3 SUCCESS via callActionSynth download: {filename}")
+                                except Exception as s3_err:
+                                    logger.warning(f"[PDF] Strategy 3 failed: {s3_err}")
+
+                            # Strategy 4: check route interceptor one more time (may have caught during any of the above)
+                            if not pdf_saved and intercepted_pdf_bytes:
+                                try:
+                                    with open(filename, "wb") as f:
+                                        f.write(intercepted_pdf_bytes[0])
+                                    pdf_saved = True
+                                    logger.info(f"[PDF] Strategy 4 SUCCESS via delayed route intercept: {filename}")
+                                except Exception as write_err:
+                                    logger.error(f"[PDF] Could not write intercepted PDF (S4): {write_err}")
+
                         else:
-                            # No button found — try callActionSynth download directly
+                            # No button found — try callActionSynth as download directly
                             notify("Trying direct PDF download via JS...")
-                            pdf_saved = await _try_expect_download(
-                                lambda: btn_frame.evaluate("callActionSynth()") if btn_frame else None
-                            )
+                            logger.info("[PDF] No btnRechercher found, using callActionSynth directly")
+                            try:
+                                async with context.expect_download(timeout=self.timeout) as dl_info:
+                                    if btn_frame:
+                                        await btn_frame.evaluate("callActionSynth()")
+                                    else:
+                                        for f in target_page.frames:
+                                            try:
+                                                await f.evaluate("callActionSynth()")
+                                                break
+                                            except:
+                                                pass
+                                dl = await dl_info.value
+                                await dl.save_as(filename)
+                                pdf_saved = True
+                                logger.info(f"[PDF] Direct callActionSynth SUCCESS: {filename}")
+                            except Exception as direct_err:
+                                logger.error(f"[PDF] Direct callActionSynth failed: {direct_err}")
+                                # Check interceptor
+                                if intercepted_pdf_bytes:
+                                    try:
+                                        with open(filename, "wb") as f:
+                                            f.write(intercepted_pdf_bytes[0])
+                                        pdf_saved = True
+                                        logger.info(f"[PDF] Fallback route intercept SUCCESS: {filename}")
+                                    except:
+                                        pass
+
+                        # Unregister the route interceptor (cleanup)
+                        try:
+                            await context.unroute("**/*", _intercept_pdf)
+                        except:
+                            pass
 
                         if pdf_saved:
                             result["success"] = True
