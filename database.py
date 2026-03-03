@@ -43,13 +43,14 @@ def save_extraction(vin, file_path, vehicle_data, status='Success'):
     with SessionLocal() as db:
         warranty_obj = vehicle_data.get('warranty') or vehicle_data.get('warranty_details') or {}
         warranty = json.dumps(warranty_obj)
-        lcdv = json.dumps(vehicle_data.get('lcdv', {}))
+        lcdv_obj = vehicle_data.get('lcdv', {})
+        lcdv = json.dumps(lcdv_obj)
         recalls = vehicle_data.get('recalls', {})
         recall_status = recalls.get('status', 'Unknown')
         recall_message = recalls.get('message', '')
         recall_data = json.dumps(recalls)
         
-        # Insert History
+        # Insert History (always insert all data we got on this run)
         history_entry = VehicleHistory(
             vin=vin,
             file_path=file_path,
@@ -62,16 +63,24 @@ def save_extraction(vin, file_path, vehicle_data, status='Success'):
         )
         db.add(history_entry)
         
-        # Upsert Vehicle (merge)
+        # Upsert Vehicle (merge, don't overwrite with empty)
         vehicle = db.query(Vehicle).filter(Vehicle.vin == vin).first()
         if vehicle:
-            vehicle.file_path = file_path
-            vehicle.warranty_data = warranty
-            vehicle.lcdv_data = lcdv
-            vehicle.recall_status = recall_status
-            vehicle.recall_message = recall_message
+            if file_path:
+                vehicle.file_path = file_path
+                
+            if warranty_obj:
+                vehicle.warranty_data = warranty
+                
+            if lcdv_obj:
+                vehicle.lcdv_data = lcdv
+                
+            if recalls:
+                vehicle.recall_status = recall_status
+                vehicle.recall_message = recall_message
+                vehicle.recall_data = recall_data
+                
             vehicle.status = status
-            vehicle.recall_data = recall_data
         else:
             vehicle = Vehicle(
                 vin=vin,
