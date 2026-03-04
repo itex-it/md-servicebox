@@ -246,6 +246,41 @@ def clear_queue(status_list=None):
         db.commit()
         return count
 
+def get_open_recalls(brand=None):
+    """
+    Returns a list of all vehicles that have an open recall campaign.
+    We assume an open recall is any status that is NOT 'Unknown', 'Keine Rückrufe', 'OK', etc.
+    """
+    with SessionLocal() as db:
+        query = db.query(Vehicle).filter(
+            Vehicle.recall_status.isnot(None),
+            Vehicle.recall_status != '',
+            Vehicle.recall_status != 'Unknown',
+            Vehicle.recall_status.notilike('%Keine Rückrufaktionen%'),
+            Vehicle.recall_status.notilike('%Keine Rückrufe%')
+        )
+        
+        # Optional: We could filter by brand here if the VIN prefix matches, though it's easier 
+        # to return them all and let the API filter if desired.
+        rows = query.order_by(Vehicle.last_updated.desc()).all()
+        
+        recalls = []
+        for row in rows:
+            # Check the actual recall_data JSON to ensure there's a code and it's not resolved
+            status_text = row.recall_status or ""
+            message_text = row.recall_message or ""
+            
+            # Simple heuristic: If it has words like "OFFEN", "Sicherheit", or just a code without 'Keine'
+            if "kein" not in status_text.lower() and "no recall" not in status_text.lower():
+                recalls.append({
+                    "vin": row.vin,
+                    "recall_status": status_text,
+                    "recall_message": message_text,
+                    "last_updated": str(row.last_updated) if row.last_updated else None
+                })
+                
+        return recalls
+
 def get_history(vin=None, search_term=None, limit=100):
     with SessionLocal() as db:
         query = db.query(VehicleHistory)

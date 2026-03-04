@@ -147,6 +147,7 @@ class VinRequest(BaseModel):
     force_refresh: bool = False
     priority: bool = False
     severe_conditions: bool = False
+    recalls_only: bool = False
     refresh_reason: Optional[str] = None
 
 
@@ -223,7 +224,7 @@ def get_maintenance_plan(request: VinRequest, background_tasks: BackgroundTasks)
                 }
 
         # 2. Queue Job (Async)
-        job_id = job_manager.add_job(request.vin, request.priority)
+        job_id = job_manager.add_job(request.vin, request.priority, request.recalls_only)
         
         return {
             "success": True,
@@ -383,6 +384,17 @@ def get_vehicle_services(vin: str, severe_conditions: bool = False):
         })
         
     return {"vin": vin, "services_available": True, "services": services}
+
+@app.get("/api/recalls/open", dependencies=[Depends(get_api_key)])
+def list_open_recalls(brand: Optional[str] = None):
+    """
+    Returns a list of all vehicles with an open recall campaign.
+    """
+    try:
+        recalls = database.get_open_recalls(brand)
+        return {"success": True, "count": len(recalls), "recalls": recalls}
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"success": False, "error": str(e)})
 
 @app.get("/api/jobs", dependencies=[Depends(get_api_key)])
 def list_jobs(status: str = None, vin: str = None, limit: int = 50):
