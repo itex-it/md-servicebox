@@ -32,6 +32,7 @@ class Vehicle(Base):
     recall_message = Column(Text)
     recall_data = Column(Text)
     status = Column(Text)
+    auto_refresh = Column(Boolean, default=True)
 
 class Job(Base):
     __tablename__ = 'jobs'

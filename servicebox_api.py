@@ -208,6 +208,31 @@ def get_maintenance_plan(request: VinRequest, background_tasks: BackgroundTasks)
                         "interval": interval
                     })
                 
+                # --- Auto-Refresh Logic ---
+                from datetime import datetime
+                refresh_queued = False
+                
+                # Parse last_updated manually because SQLite returns string in dict sometimes
+                last_updated_str = cached_vehicle.get('last_updated')
+                if last_updated_str:
+                    try:
+                        if isinstance(last_updated_str, str): # Handle string formatting
+                            last_update_obj = datetime.strptime(last_updated_str.split('.')[0], "%Y-%m-%d %H:%M:%S")
+                        else:
+                            last_update_obj = last_updated_str
+                            
+                        # If cache is older than config max days AND auto_refresh is allowed
+                        cache_max_days = config.get("cache_max_days", 180)
+                        days_old = (datetime.now() - last_update_obj).days
+                        
+                        if days_old > cache_max_days and cached_vehicle.get('auto_refresh', True):
+                            logger.info(f"Cache for {request.vin} is {days_old} days old (Limit: {cache_max_days}). Auto-Queueing refresh.")
+                            # Queue a background refresh (recalls only, to reduce strain)
+                            job_manager.add_job(request.vin, priority=False, recalls_only=True)
+                            refresh_queued = True
+                    except Exception as parse_e:
+                        logger.warning(f"Could not parse last_updated for auto-refresh: {parse_e}")
+                
                 return {
                     "success": True,
                     "vin": request.vin,
@@ -220,7 +245,8 @@ def get_maintenance_plan(request: VinRequest, background_tasks: BackgroundTasks)
                     "services": services,
                     "download_url": download_url,
                     "cached": True,
-                    "status": "cached"
+                    "status": "cached",
+                    "refresh_queued": refresh_queued
                 }
 
         # 2. Queue Job (Async)
@@ -256,9 +282,36 @@ def get_job_status(job_id: str):
         "vin": job['vin'],
         "status": job['status'],
         "created_at": job['created_at'],
+        "updated_at": job['updated_at'],
         "result": result,
-        "error_message": job['error_message']
+        "error_message": job['error_message'],
+        "progress_message": job['progress_message']
     }
+
+class VehicleSettingsRequest(BaseModel):
+    auto_refresh: bool
+
+@app.put("/api/vehicle/{vin}/settings", dependencies=[Depends(get_api_key)])
+def update_vehicle_settings(vin: str, request: VehicleSettingsRequest):
+    """
+    Updates specific settings for a cached vehicle (e.g. disabling auto-refresh for scrapped cars).
+    """
+    success = database.update_vehicle_settings(vin, request.auto_refresh)
+    if not success:
+        return JSONResponse(status_code=404, content={"success": False, "error": "Vehicle not found in cache"})
+        
+    return {"success": True, "vin": vin, "auto_refresh": request.auto_refresh}
+
+@app.get("/api/vehicles/search", dependencies=[Depends(get_api_key)])
+def search_vehicles(energyType: Optional[str] = None, minAge: Optional[int] = None):
+    """
+    Searches cached vehicles based on criteria like energy type (BEV/ICE) and age.
+    """
+    try:
+        results = database.search_vehicles(energy_type=energyType, min_age_years=minAge)
+        return {"success": True, "count": len(results), "vehicles": results}
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"success": False, "error": str(e)})
 
 @app.post("/api/jobs/retry", dependencies=[Depends(require_admin)])
 def retry_jobs(request: RetryRequest):

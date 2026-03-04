@@ -39,6 +39,17 @@ SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 def init_db():
     print(f"[DB] Initializing database at {url}")
     Base.metadata.create_all(bind=engine)
+    
+    # Graceful migration for existing SQLite databases (adds the auto_refresh column if missing)
+    if url.startswith("sqlite"):
+        try:
+            with engine.connect() as conn:
+                conn.execute("ALTER TABLE vehicles ADD COLUMN auto_refresh BOOLEAN DEFAULT 1")
+                conn.commit()
+                print("[DB] Migration: Added auto_refresh column to vehicles table.")
+        except Exception as e:
+            # Column likely already exists
+            pass
 
 def save_extraction(vin, file_path, vehicle_data, status='Success'):
     with SessionLocal() as db:
@@ -65,36 +76,44 @@ def save_extraction(vin, file_path, vehicle_data, status='Success'):
         db.add(history_entry)
         
         # Upsert Vehicle (merge, don't overwrite with empty)
+        existing = db.query(Vehicle).filter(Vehicle.vin == vin).first()
+        if existing:
+            # Update
+            existing.file_path = file_path
+            
+            # Merge logic for vehicle data: Only overwrite if new data isn't empty
+            # If the current extraction failed to grab warranty/lcdv (empty string or '{}'), 
+            # we keep the old valid data to prevent data loss.
+            if warranty and warranty != "{}" and warranty != '""':
+                existing.warranty_data = warranty
+            if lcdv and lcdv != "{}" and lcdv != '""':
+                existing.lcdv_data = lcdv
+                
+            existing.recall_status = recall_status
+            existing.recall_message = recall_message
+            existing.recall_data = recall_data
+            existing.status = status
+            existing.last_updated = datetime.now() # Manually trigger update
+            # We explicitly do NOT touch existing.auto_refresh here to preserve user settings
+        else:
+            # Insert
+            new_vehicle = Vehicle(
+                vin=vin, file_path=file_path, warranty_data=warranty,
+                lcdv_data=lcdv, recall_status=recall_status,
+                recall_message=recall_message, status=status,
+                recall_data=recall_data, auto_refresh=True
+            )
+            db.add(new_vehicle)
+        db.commit()
+
+def update_vehicle_settings(vin, auto_refresh: bool):
+    with SessionLocal() as db:
         vehicle = db.query(Vehicle).filter(Vehicle.vin == vin).first()
         if vehicle:
-            if file_path:
-                vehicle.file_path = file_path
-                
-            if warranty_obj:
-                vehicle.warranty_data = warranty
-                
-            if lcdv_obj:
-                vehicle.lcdv_data = lcdv
-                
-            if recalls:
-                vehicle.recall_status = recall_status
-                vehicle.recall_message = recall_message
-                vehicle.recall_data = recall_data
-                
-            vehicle.status = status
-        else:
-            vehicle = Vehicle(
-                vin=vin,
-                file_path=file_path,
-                warranty_data=warranty,
-                lcdv_data=lcdv,
-                recall_status=recall_status,
-                recall_message=recall_message,
-                status=status,
-                recall_data=recall_data
-            )
-            db.add(vehicle)
-            
+            vehicle.auto_refresh = auto_refresh
+            db.commit()
+            return True
+        return False    
         db.commit()
 
 def get_latest_vehicle(vin):
@@ -280,6 +299,69 @@ def get_open_recalls(brand=None):
                 })
                 
         return recalls
+
+def search_vehicles(energy_type=None, min_age_years=None):
+    """
+    Finds vehicles in the local cache matching criteria like energy type or age.
+    This inspects the JSON payload stored in warranty_data and lcdv_data.
+    """
+    with SessionLocal() as db:
+        query = db.query(Vehicle)
+        
+        # We fetch all (or a large limit) and filter in Python since SQLite JSON extraction 
+        # is complex and sometimes version-dependent, and the cache size (<10k) allows in-memory filtering.
+        vehicles = query.all()
+        results = []
+        
+        now = datetime.now()
+        
+        for v in vehicles:
+            match = True
+            
+            # Extract JSON data safely
+            try: warranty = json.loads(v.warranty_data) if v.warranty_data else {}
+            except: warranty = {}
+                
+            try: lcdv = json.loads(v.lcdv_data) if v.lcdv_data else {}
+            except: lcdv = {}
+            
+            # --- Check Energy Type ---
+            if energy_type and match:
+                # E.g. lcdv might have {"Energie": "ELEKTROMOTOR"}
+                v_energy = str(lcdv.get("Energie", "")).upper()
+                if energy_type.upper() not in v_energy:
+                    match = False
+                    
+            # --- Check Age (from warranty start date) ---
+            if min_age_years is not None and match:
+                # Peugeot sometimes calls it "Startdatum der Garantie"
+                start_date_str = warranty.get("Startdatum der Garantie") or warranty.get("warranty_start_date")
+                
+                v_age_years = 0
+                if start_date_str:
+                    try:
+                        # Common format: "15.03.2018" or "2018-03-15"
+                        if "." in start_date_str:
+                            start_date = datetime.strptime(start_date_str, "%d.%m.%Y")
+                        else:
+                            start_date = datetime.strptime(start_date_str.split("T")[0], "%Y-%m-%d")
+                        v_age_years = (now - start_date).days / 365.25
+                    except:
+                        pass
+                
+                if v_age_years < min_age_years:
+                    match = False
+                    
+            if match:
+                results.append({
+                    "vin": v.vin,
+                    "auto_refresh": getattr(v, "auto_refresh", True),
+                    "energy": lcdv.get("Energie", "Unknown"),
+                    "age_years": round(v_age_years, 1) if 'v_age_years' in locals() and v_age_years > 0 else None,
+                    "last_updated": str(v.last_updated) if v.last_updated else None
+                })
+                
+        return results
 
 def get_history(vin=None, search_term=None, limit=100):
     with SessionLocal() as db:
