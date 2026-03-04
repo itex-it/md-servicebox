@@ -146,3 +146,28 @@ Um diesen Code in Zukunft nie mehr manuell auf den Server kopieren zu müssen, s
 5. Aktiviere weiter unten **Automatic updates** (Webhook oder Polling).
 
 *Ergebnis:* Wann immer du in Zukunft auf deinem PC den Python-Code änderst und per `git push` in dein Repository schiebst, reißt Portainer den aktuellen Server automatisch ab, zieht den brandneuen Code und startet den Container vollkommen lautlos innerhalb von Sekunden neu!
+
+---
+
+## 💾 Backup & Wiederherstellung (Portabilität)
+
+Um ServiceBox extrem portabel zu halten, wurde eine automatisierte Backup-Strategie integriert:
+
+### Automatische SQLite Snapshots
+Das System fertigt jeden Tag um **03:00 Uhr nachts** automatisch einen transaktionssicheren Snapshot der aktiven Datenbank an.
+Diese Backups landen im Ordner `./backups` und werden nach 14 Tagen automatisch bereinigt.
+
+### System klonen oder umziehen (Fresh Install)
+Da das `docker-compose.yml` File strikt alle Daten in Ordner auf dem Host-Computer mappt, ist ein Umzug auf einen neuen Server sehr einfach:
+
+1. **Ordner kopieren:** Kopiere die vier Ordner `./data`, `./config`, `./downloads` und `./backups` vom alten Server auf den neuen Server (oder lade sie per ZIP herunter).
+2. **Repository pullen:** Verbinde dein Repository im neuen Portainer.
+3. **Mount-Ordner anlegen:** Stelle sicher, dass die kopierten Ordner im exakt gleichen Pfad liegen, wo Docker Compose das Projekt ausführt.
+4. **Deploy:** Klicke "Deploy" -> Das System läuft am exakt gleichen Zustand weiter.
+
+### Datenbank aus Backup wiederherstellen (Restore)
+Sollte die `servicebox_history.db` im `./data` Ordner jemals irreparabel beschädigt werden (z.B. durch Server-Blackout):
+1. Stoppe den Docker-Container in Portainer.
+2. Gehe in den Ordner `./backups` und hole dir die letzte `.db` Datei (z.B. `servicebox_history_2026-03-05_03-00-00.db`).
+3. Benenne diese Datei in `servicebox_history.db` um und überschreibe damit die kaputte Datei im Ordner `./data/`.
+4. Starte den Container wieder.

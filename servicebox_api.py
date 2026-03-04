@@ -17,6 +17,8 @@ from job_manager import job_manager
 import json
 from paperless_client import paperless_client
 import requests
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
+import backup_manager
 
 import subprocess
 
@@ -59,16 +61,24 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+scheduler = AsyncIOScheduler()
+
 @app.on_event("startup")
 async def startup_event():
     logger.info("Starting ServiceBox API...")
     database.init_db()
     job_manager.start_worker()
+    
+    # Start the Daily Backup Job at 03:00 AM
+    scheduler.add_job(backup_manager.create_safe_backup, 'cron', hour=3, minute=0)
+    scheduler.start()
+    logger.info("Scheduled database backup for 03:00 AM daily.")
 
 @app.on_event("shutdown")
 async def shutdown_event():
     logger.info("Shutting down ServiceBox API...")
     job_manager.stop_worker()
+    scheduler.shutdown()
 
 # Serve Static Files (Dashboard)
 app.mount("/static", StaticFiles(directory="static"), name="static")

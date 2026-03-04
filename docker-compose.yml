@@ -32,6 +32,7 @@ services:
       - sb_logs_data:/app/logs
       - sb_downloads_data:/app/downloads
       - sb_debug_data:/app/debug
+      - sb_backups_data:/app/backups
     environment:
       # Optional: Hier koennen Config-Werte ueberschrieben werden.
       - REDIS_URL=redis://redis:6379/0
@@ -69,3 +70,4 @@ volumes:
   sb_downloads_data:
   sb_debug_data:
   sb_redis_data:
+  sb_backups_data:
