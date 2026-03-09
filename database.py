@@ -1,7 +1,7 @@
 import json
 import os
 from datetime import datetime, timedelta
-from sqlalchemy import create_engine, select, update, delete, func, desc, or_
+from sqlalchemy import create_engine, select, update, delete, func, desc, or_, text
 from sqlalchemy.orm import sessionmaker
 import config_loader
 
@@ -44,7 +44,7 @@ def init_db():
     if url.startswith("sqlite"):
         try:
             with engine.connect() as conn:
-                conn.execute("ALTER TABLE vehicles ADD COLUMN auto_refresh BOOLEAN DEFAULT 1")
+                conn.execute(text("ALTER TABLE vehicles ADD COLUMN auto_refresh BOOLEAN DEFAULT 1"))
                 conn.commit()
                 print("[DB] Migration: Added auto_refresh column to vehicles table.")
         except Exception as e:
