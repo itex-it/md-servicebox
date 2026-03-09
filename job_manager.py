@@ -286,7 +286,25 @@ class JobManager:
                                     try: os.remove(file_path)
                                     except: pass
 
-                # 2. Cleanup Old Debug Files (>3 Days)
+                # 2. Resolve pending PROCESSING_IN_PAPERLESS documents
+                if paperless_client.enabled:
+                    try:
+                        with database.SessionLocal() as db:
+                            from models import VehicleHistory, Vehicle
+                            processing_histories = db.query(VehicleHistory).filter(VehicleHistory.file_path == "paperless:PROCESSING_IN_PAPERLESS").all()
+                            for v_hist in processing_histories:
+                                title = f"Wartungsplan {v_hist.vin}"
+                                doc_id = paperless_client.find_document_by_title(title)
+                                if doc_id:
+                                    logger.info(f"Resolved pending Paperless document for VIN {v_hist.vin}: new ID is {doc_id}")
+                                    new_path = f"paperless:{doc_id}"
+                                    db.query(VehicleHistory).filter(VehicleHistory.id == v_hist.id).update({"file_path": new_path})
+                                    db.query(Vehicle).filter(Vehicle.vin == v_hist.vin, Vehicle.file_path == "paperless:PROCESSING_IN_PAPERLESS").update({"file_path": new_path})
+                                    db.commit()
+                    except Exception as e:
+                        logger.error(f"Error resolving PROCESSING_IN_PAPERLESS docs: {e}")
+
+                # 3. Cleanup Old Debug Files (>3 Days)
                 if os.path.exists("debug"):
                     now = time.time()
                     for filename in os.listdir("debug"):

@@ -104,4 +104,17 @@ class PaperlessClient:
             logger.error(f"Paperless Upload Error: {e}")
             return None
 
+    def find_document_by_title(self, title: str):
+        """Searches for a document by exact title and returns its ID, or None if not yet processed."""
+        if not self.enabled or not self.url or not self.token:
+            return None
+        try:
+            search_res = requests.get(f"{self.url}/api/documents/", headers=self.headers, params={"title__iexact": title}, timeout=10)
+            if search_res.ok and search_res.json().get("count", 0) > 0:
+                 return search_res.json()["results"][0]["id"]
+            return None
+        except Exception as e:
+            logger.error(f"Error querying Paperless for title '{title}': {e}")
+            return None
+
 paperless_client = PaperlessClient()
