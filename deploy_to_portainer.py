@@ -32,7 +32,7 @@ def deploy_stack():
     print(f" Pruefe, ob Stack '{STACK_NAME}' bereits existiert...")
     
     try:
-        stack_id = 72
+        stack_id = 73
         print(f" Stack läuft unter (ID: {stack_id}). Führe GitOps UPDATE aus...")
         
         # Pull Git Update via API instead of raw string update
