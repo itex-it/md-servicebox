@@ -50,6 +50,22 @@ def init_db():
         except Exception as e:
             # Column likely already exists
             pass
+            
+        try:
+            with engine.connect() as conn:
+                conn.execute(text("ALTER TABLE vehicles ADD COLUMN energy_type TEXT"))
+                conn.commit()
+                print("[DB] Migration: Added energy_type column to vehicles table.")
+        except Exception as e:
+            pass
+
+        try:
+            with engine.connect() as conn:
+                conn.execute(text("ALTER TABLE vehicle_history ADD COLUMN energy_type TEXT"))
+                conn.commit()
+                print("[DB] Migration: Added energy_type column to vehicle_history table.")
+        except Exception as e:
+            pass
 
 def save_extraction(vin, file_path, vehicle_data, status='Success'):
     with SessionLocal() as db:
