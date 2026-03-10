@@ -15,11 +15,25 @@ def _extract_fuel_from_paperless(doc_id):
     if not content: return None
     
     content_upper = content.upper()
-    valid_fuels = ["DIESEL", "E-THP", "PURETECH", "BENZIN", "BEV", "ELEKTRO", "PHEV", "HYBRID", "PETROL"]
     
-    for fuel in valid_fuels:
-        if fuel in content_upper:
-            return fuel
+    # Mapping of keywords to (Standardized Name, Motiondata Code)
+    # The order matters - put more specific terms first if needed
+    fuel_mapping = {
+        "DIESEL": ("Diesel", "02"),
+        "E-THP": ("Benzin", "01"),
+        "PURETECH": ("Benzin", "01"),
+        "BENZIN": ("Benzin", "01"),
+        "PETROL": ("Benzin", "01"),
+        "BEV": ("Elektro", "10"),
+        "ELEKTRO": ("Elektro", "10"),
+        "PHEV": ("Plug-in-Hybrid", "04"), # Assumption, can be changed later
+        "HYBRID": ("Hybrid", "03")       # Assumption, can be changed later
+    }
+    
+    for keyword, (standard_name, code) in fuel_mapping.items():
+        if keyword in content_upper:
+            return f"{standard_name} ({code})"
+            
     return None
 
 class JobManager:
