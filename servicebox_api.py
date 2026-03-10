@@ -354,11 +354,23 @@ def get_vehicle_metadata(vin: str):
         except:
             pass
 
+    energy_raw = cached.get('energy_type')
+    fuel_name = None
+    fuel_code = None
+    if energy_raw:
+        if " (" in energy_raw and energy_raw.endswith(")"):
+            pts = energy_raw.split(" (")
+            fuel_name = pts[0]
+            fuel_code = pts[1].strip(")")
+        else:
+            fuel_name = energy_raw
+
     return {
         "vin": vin,
         "last_updated": cached['last_updated'],
         "status": cached['status'],
-        "energy_type": cached.get('energy_type'),
+        "fuel_name": fuel_name,
+        "fuel_code": fuel_code,
         "has_cache": True,
         "data_age_days": data_age_days,
         "data_age_category": data_age_category

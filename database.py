@@ -432,7 +432,20 @@ def get_history(vin=None, search_term=None, limit=100):
             # Calculate completeness flags for clients
             item['data_complete'] = bool(item.get('warranty_data') and item.get('lcdv_data') and item.get('recalls_data'))
             item['pdf_ready'] = bool(item.get('file_path') and not str(item.get('file_path')).startswith('paperless:PROCESSING'))
-                
+            
+            # Split energy_type into fuel_name and fuel_code
+            energy_raw = item.get('energy_type')
+            item['fuel_name'] = None
+            item['fuel_code'] = None
+            if energy_raw:
+                if " (" in energy_raw and energy_raw.endswith(")"):
+                    pts = energy_raw.split(" (")
+                    item['fuel_name'] = pts[0]
+                    item['fuel_code'] = pts[1].strip(")")
+                else:
+                    item['fuel_name'] = energy_raw
+
+            # Expose raw energy_type as well (optional, but good for backwards compat)        
             history.append(item)
             
         return history
