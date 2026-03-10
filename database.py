@@ -5,7 +5,7 @@ from sqlalchemy import create_engine, select, update, delete, func, desc, or_, t
 from sqlalchemy.orm import sessionmaker
 import config_loader
 
-from models import Base, VehicleHistory, Vehicle, Job, MaintenanceService
+from models import Base, VehicleHistory, Vehicle, Job, MaintenanceService, JobEvent
 
 CONFIG_FILE = "config/config.json"
 
