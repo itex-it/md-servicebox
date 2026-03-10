@@ -22,28 +22,24 @@ import backup_manager
 
 import subprocess
 
-app = FastAPI(title="ServiceBox API", version="1.3.0")
-
-# Capture git commit hash for the dashboard version badge.
-# Priority: 1) .git_hash file written by Dockerfile at build time
-#            2) BUILD_ID env var (docker-compose / manual override)
-#            3) subprocess git (local development)
-#            4) 'local' fallback
-BUILD_HASH = ""
+# Load version.json
+VERSION = "1.3.0"
+BUILD_HASH = "unknown"
 try:
-    _hash_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".git_hash")
-    with open(_hash_file) as _f:
-        _v = _f.read().strip()
-        if _v and _v not in ("unknown", ""):
-            BUILD_HASH = _v
+    _v_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), "version.json")
+    if os.path.exists(_v_file):
+        with open(_v_file, "r", encoding="utf-8") as _f:
+            _v_data = json.load(_f)
+            VERSION = _v_data.get("version", VERSION)
+            BUILD_HASH = _v_data.get("commit", BUILD_HASH)
 except Exception:
     pass
 
-if not BUILD_HASH:
-    BUILD_HASH = os.environ.get("BUILD_ID", "")
+app = FastAPI(title="ServiceBox API", version=VERSION)
 
-if not BUILD_HASH or BUILD_HASH == "unknown":
+if BUILD_HASH == "unknown":
     try:
+        # Fallback to git command if no version.json or it's unknown
         BUILD_HASH = subprocess.check_output(
             ["git", "rev-parse", "--short", "HEAD"],
             cwd=os.path.dirname(os.path.abspath(__file__)),
