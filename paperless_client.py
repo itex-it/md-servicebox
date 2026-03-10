@@ -60,6 +60,13 @@ class PaperlessClient:
             return None
             
         try:
+            # Check for existing document before upload to prevent HTTP 400 duplicates
+            search_res = requests.get(f"{self.url}/api/documents/", headers=self.headers, params={"title__iexact": title}, timeout=10)
+            if search_res.ok and search_res.json().get("count", 0) > 0:
+                 doc_id = search_res.json()["results"][0]["id"]
+                 logger.info(f"Document '{title}' already exists in Paperless (ID: {doc_id}). Skipping new upload.")
+                 return doc_id
+
             # Resolve tag IDs
             tag_ids = []
             if tags:
