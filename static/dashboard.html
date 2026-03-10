@@ -1634,7 +1634,99 @@
             }
         }
 
+        function closeEventModal() {
+            document.getElementById('eventModal').style.display = 'none';
+        }
+
+        async function openVinDetails(vin) {
+            const modal = document.getElementById('eventModal');
+            const label = document.getElementById('eventVinLabel');
+            const content = document.getElementById('eventContent');
+
+            label.innerText = vin;
+            content.innerHTML = '<p style="color:#888;">Lade Job-Protokoll...</p>';
+            modal.style.display = 'block';
+
+            try {
+                const res = await fetch(`/api/events/${vin}`, { headers: API_HEADERS });
+                if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                const data = await res.json();
+                const events = data.events || [];
+
+                if (events.length === 0) {
+                    content.innerHTML = '<p style="color:#888;">Keine Ereignisse vorhanden.</p>';
+                    return;
+                }
+
+                // Group events by job_id
+                const groups = {};
+                events.forEach(ev => {
+                    if (!groups[ev.job_id]) groups[ev.job_id] = [];
+                    groups[ev.job_id].push(ev);
+                });
+
+                let html = '';
+                Object.entries(groups).forEach(([jobId, evList]) => {
+                    const first = evList[0];
+                    const last = evList[evList.length - 1];
+                    const startDt = new Date(first.timestamp.replace(' ', 'T') + 'Z');
+                    const jobDate = startDt.toLocaleString('de-AT');
+                    const hasError = evList.some(e => e.level === 'ERROR');
+                    const hasSuccess = evList.some(e => e.level === 'SUCCESS');
+                    const jobIcon = hasError ? '❌' : (hasSuccess ? '✅' : '⏳');
+
+                    html += `<div style="border:1px solid #333; border-radius:8px; margin-bottom:16px; overflow:hidden;">`;
+                    html += `<div style="background:#2a2a2a; padding:10px 14px; display:flex; justify-content:space-between; align-items:center;">`;
+                    html += `<span style="font-size:0.9em;">${jobIcon} <strong>Job</strong> <span style="color:#666; font-size:0.85em;">${jobId}</span></span>`;
+                    html += `<span style="color:#888; font-size:0.8em;">${jobDate}</span>`;
+                    html += `</div>`;
+                    html += `<div style="padding:10px 14px;">`;
+
+                    evList.forEach(ev => {
+                        const dt = new Date(ev.timestamp.replace(' ', 'T') + 'Z').toLocaleTimeString('de-AT');
+                        let levelColor = '#aaa';
+                        let levelIcon = '•';
+                        if (ev.level === 'ERROR') { levelColor = '#cf6679'; levelIcon = '🔴'; }
+                        else if (ev.level === 'SUCCESS') { levelColor = '#03dac6'; levelIcon = '🟢'; }
+                        else if (ev.level === 'WARNING') { levelColor = '#FFC107'; levelIcon = '🟡'; }
+                        else if (ev.level === 'INFO') { levelColor = '#aaa'; levelIcon = '▪'; }
+
+                        html += `<div style="display:flex; gap:10px; margin-bottom:5px; font-size:0.88em; align-items:flex-start;">`;
+                        html += `<span style="color:#555; white-space:nowrap; min-width:60px;">${dt}</span>`;
+                        html += `<span style="min-width:12px;">${levelIcon}</span>`;
+                        html += `<span style="color:${levelColor};">${ev.message}</span>`;
+                        html += `</div>`;
+                    });
+
+                    html += `</div></div>`;
+                });
+
+                content.innerHTML = html;
+
+            } catch (e) {
+                content.innerHTML = `<p style="color:#cf6679;">Fehler beim Laden: ${e.message}</p>`;
+            }
+        }
+
     </script>
+
+    <!-- Job Event Log Modal -->
+    <div id="eventModal"
+        style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.7); z-index:9999; overflow-y:auto;"
+        onclick="if(event.target===this) closeEventModal()">
+        <div
+            style="background:#1e1e1e; border:1px solid #444; border-radius:10px; max-width:780px; margin:3% auto; padding:24px; position:relative;">
+            <button onclick="closeEventModal()"
+                style="position:absolute; top:12px; right:16px; background:none; border:none; color:#aaa; font-size:1.4em; cursor:pointer;">✕</button>
+            <h3 style="margin:0 0 6px; color:#bb86fc;">🔎 Job-Protokoll</h3>
+            <div id="eventVinLabel" style="font-family:monospace; color:#03dac6; font-size:1.1em; margin-bottom:16px;">
+            </div>
+            <div id="eventContent" style="max-height:60vh; overflow-y:auto; padding-right:8px;">
+                <p style="color:#888;">Laden...</p>
+            </div>
+        </div>
+    </div>
+
 </body>
 
 </html>
