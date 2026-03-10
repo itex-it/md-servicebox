@@ -124,4 +124,17 @@ class PaperlessClient:
             logger.error(f"Error querying Paperless for title '{title}': {e}")
             return None
 
+    def get_document_content(self, doc_id: int):
+        """Fetches the OCR text content of a document."""
+        if not self.enabled or not self.url or not self.token or not doc_id:
+            return None
+        try:
+            res = requests.get(f"{self.url}/api/documents/{doc_id}/", headers=self.headers, timeout=10)
+            if res.ok:
+                return res.json().get("content", "")
+            return None
+        except Exception as e:
+            logger.error(f"Error fetching content for doc_id {doc_id}: {e}")
+            return None
+
 paperless_client = PaperlessClient()

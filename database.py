@@ -61,6 +61,7 @@ def save_extraction(vin, file_path, vehicle_data, status='Success'):
         recall_status = recalls.get('status', 'Unknown')
         recall_message = recalls.get('message', '')
         recall_data = json.dumps(recalls)
+        energy_type = vehicle_data.get('energy_type')
         
         # Insert History (always insert all data we got on this run)
         history_entry = VehicleHistory(
@@ -71,7 +72,8 @@ def save_extraction(vin, file_path, vehicle_data, status='Success'):
             recall_status=recall_status,
             recall_message=recall_message,
             status=status,
-            recall_data=recall_data
+            recall_data=recall_data,
+            energy_type=energy_type
         )
         db.add(history_entry)
         
@@ -93,15 +95,21 @@ def save_extraction(vin, file_path, vehicle_data, status='Success'):
             existing.recall_message = recall_message
             existing.recall_data = recall_data
             existing.status = status
+            if energy_type:
+                existing.energy_type = energy_type
             existing.last_updated = datetime.now() # Manually trigger update
             # We explicitly do NOT touch existing.auto_refresh here to preserve user settings
         else:
             # Insert
             new_vehicle = Vehicle(
                 vin=vin, file_path=file_path, warranty_data=warranty,
-                lcdv_data=lcdv, recall_status=recall_status,
-                recall_message=recall_message, status=status,
-                recall_data=recall_data, auto_refresh=True
+                lcdv_data=lcdv,
+                recall_status=recall_status,
+                recall_message=recall_message,
+                recall_data=recall_data,
+                status=status,
+                energy_type=energy_type,
+                auto_refresh=True
             )
             db.add(new_vehicle)
         db.commit()
@@ -558,3 +566,31 @@ def get_maintenance_services(vin: str) -> list:
                 'severe_repeat_years': p_sev.get('repeat_years'),
             })
         return services
+
+def log_job_event(job_id: str, vin: str, level: str, message: str):
+    try:
+        with SessionLocal() as db:
+            event = JobEvent(
+                job_id=job_id,
+                vin=vin,
+                level=level,
+                message=message
+            )
+            db.add(event)
+            db.commit()
+    except Exception as e:
+        # Don't fail the whole app if logging an event fails
+        print(f"Failed to log job event for {vin}: {e}")
+
+def get_job_events(vin: str):
+    """Returns a chronological list of job events for a VIN."""
+    with SessionLocal() as db:
+        events = db.query(JobEvent).filter(JobEvent.vin == vin).order_by(desc(JobEvent.timestamp)).all()
+        return [
+            {
+                "timestamp": e.timestamp.isoformat() + "Z",
+                "level": e.level,
+                "message": e.message,
+                "job_id": e.job_id
+            } for e in events
+        ]

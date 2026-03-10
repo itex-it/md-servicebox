@@ -500,3 +500,6 @@ Call log:
 2026-03-03 13:03:46,498 - INFO - Successfully pushed to Paperless. Response: "713a6e03-2ea4-44ff-83f7-66d2f58f7e7b"
 2026-03-03 13:03:48,573 - INFO - Successfully synced VF3EBRHD8BZ038648_20260303_125826_Wartungsplan.pdf to Paperless. Deleting local copy.
 2026-03-03 19:58:32,220 - WARNING - Shutdown requested via API.
+2026-03-10 09:42:18,714 - ERROR - [QueueManager] Failed to connect to Redis. Falling back to SQL polling mode. Error: Error 10061 connecting to localhost:6379. Es konnte keine Verbindung hergestellt werden, da der Zielcomputer die Verbindung verweigerte.
+2026-03-10 09:42:39,774 - ERROR - [QueueManager] Failed to connect to Redis. Falling back to SQL polling mode. Error: Error 10061 connecting to localhost:6379. Es konnte keine Verbindung hergestellt werden, da der Zielcomputer die Verbindung verweigerte.
+2026-03-10 11:21:45,776 - ERROR - [QueueManager] Failed to connect to Redis. Falling back to SQL polling mode. Error: Error 10061 connecting to localhost:6379. Es konnte keine Verbindung hergestellt werden, da der Zielcomputer die Verbindung verweigerte.

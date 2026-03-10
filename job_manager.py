@@ -10,6 +10,18 @@ from config_loader import logger
 from paperless_client import paperless_client
 from queue_manager import queue_manager
 
+def _extract_fuel_from_paperless(doc_id):
+    content = paperless_client.get_document_content(doc_id)
+    if not content: return None
+    
+    content_upper = content.upper()
+    valid_fuels = ["DIESEL", "E-THP", "PURETECH", "BENZIN", "BEV", "ELEKTRO", "PHEV", "HYBRID", "PETROL"]
+    
+    for fuel in valid_fuels:
+        if fuel in content_upper:
+            return fuel
+    return None
+
 class JobManager:
     def __init__(self):
         self.running = False
@@ -78,6 +90,7 @@ class JobManager:
 
                 # 4. Process Job
                 logger.info(f"Processing Job {job['job_id']} (VIN: {job['vin']})")
+                database.log_job_event(job['job_id'], job['vin'], "INFO", "Job vom Worker gestartet")
                 
                 # Mark as processing
                 database.update_job_status(job['job_id'], 'processing')
@@ -88,6 +101,7 @@ class JobManager:
                 def progress_cb(msg):
                     try:
                         database.update_job_progress(job['job_id'], msg)
+                        database.log_job_event(job['job_id'], job['vin'], "INFO", msg)
                     except Exception as e:
                         pass # Non-critical failure
                 
@@ -132,6 +146,14 @@ class JobManager:
                                     result['file_path'] = f"paperless:{doc_id}"
                                     file_path = result['file_path']
                                     
+                                    if doc_id != "PROCESSING_IN_PAPERLESS":
+                                        fuel = _extract_fuel_from_paperless(doc_id)
+                                        if fuel:
+                                            if 'vehicle_data' not in result:
+                                                result['vehicle_data'] = {}
+                                            result['vehicle_data']['energy_type'] = fuel
+                                            logger.info(f"Extracted fuel type from OCR: {fuel}")
+                                    
                                     # Delete local temporary file
                                     try:
                                         # result['file_path'] is paperless:XYZ, but original file_path is still available locally
@@ -159,9 +181,11 @@ class JobManager:
                             result.get('vehicle_data', {})
                         )
                         database.update_job_status(job['job_id'], 'success', result)
+                        database.log_job_event(job['job_id'], job['vin'], "SUCCESS", "Auftrag erfolgreich abgeschlossen")
                     except Exception as e:
                         logger.error(f"Failed to save history for job {job['job_id']}: {e}")
                         database.update_job_status(job['job_id'], 'error', error_message=str(e))
+                        database.log_job_event(job['job_id'], job['vin'], "ERROR", f"Datenbank Fehler beim Speichern der Historie: {e}")
 
                     self.consecutive_requests += 1
                     self.consecutive_errors = 0 # Reset error count
@@ -169,6 +193,7 @@ class JobManager:
                     error_msg = result.get('message') or result.get('error') or 'Unknown Error'
                     database.update_job_status(job['job_id'], 'error', error_message=error_msg)
                     logger.error(f"Job {job['job_id']} Failed: {error_msg}")
+                    database.log_job_event(job['job_id'], job['vin'], "ERROR", f"Fehlgeschlagen: {error_msg}")
                     
                     # Error Handling Strategy
                     self.consecutive_errors += 1
@@ -280,8 +305,12 @@ class JobManager:
                                     # Update Database History Record
                                     with database.SessionLocal() as db:
                                         from models import VehicleHistory, Vehicle
-                                        db.query(VehicleHistory).filter(VehicleHistory.file_path == str(os.path.abspath(file_path))).update({"file_path": f"paperless:{doc_id}"})
-                                        db.query(Vehicle).filter(Vehicle.file_path == str(os.path.abspath(file_path))).update({"file_path": f"paperless:{doc_id}"})
+                                        fuel = _extract_fuel_from_paperless(doc_id) if str(doc_id) != "PROCESSING_IN_PAPERLESS" else None
+                                        val_dict = {"file_path": f"paperless:{doc_id}"}
+                                        if fuel: val_dict["energy_type"] = fuel
+                                        
+                                        db.query(VehicleHistory).filter(VehicleHistory.file_path == str(os.path.abspath(file_path))).update(val_dict)
+                                        db.query(Vehicle).filter(Vehicle.file_path == str(os.path.abspath(file_path))).update(val_dict)
                                         db.commit()
                                     try: os.remove(file_path)
                                     except: pass
@@ -298,8 +327,16 @@ class JobManager:
                                 if doc_id:
                                     logger.info(f"Resolved pending Paperless document for VIN {v_hist.vin}: new ID is {doc_id}")
                                     new_path = f"paperless:{doc_id}"
-                                    db.query(VehicleHistory).filter(VehicleHistory.id == v_hist.id).update({"file_path": new_path})
-                                    db.query(Vehicle).filter(Vehicle.vin == v_hist.vin, Vehicle.file_path == "paperless:PROCESSING_IN_PAPERLESS").update({"file_path": new_path})
+                                    fuel = _extract_fuel_from_paperless(doc_id)
+                                    
+                                    val_dict_hist = {"file_path": new_path}
+                                    val_dict_veh = {"file_path": new_path}
+                                    if fuel:
+                                        val_dict_hist["energy_type"] = fuel
+                                        val_dict_veh["energy_type"] = fuel
+                                        
+                                    db.query(VehicleHistory).filter(VehicleHistory.id == v_hist.id).update(val_dict_hist)
+                                    db.query(Vehicle).filter(Vehicle.vin == v_hist.vin, Vehicle.file_path == "paperless:PROCESSING_IN_PAPERLESS").update(val_dict_veh)
                                     db.commit()
                     except Exception as e:
                         logger.error(f"Error resolving PROCESSING_IN_PAPERLESS docs: {e}")

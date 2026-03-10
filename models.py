@@ -19,6 +19,7 @@ class VehicleHistory(Base):
     recall_message = Column(Text)
     status = Column(Text, default='Success')
     recall_data = Column(Text)
+    energy_type = Column(Text)
 
 class Vehicle(Base):
     __tablename__ = 'vehicles'
@@ -33,6 +34,7 @@ class Vehicle(Base):
     recall_data = Column(Text)
     status = Column(Text)
     auto_refresh = Column(Boolean, default=True)
+    energy_type = Column(Text)
 
 class Job(Base):
     __tablename__ = 'jobs'
@@ -58,3 +60,13 @@ class MaintenanceService(Base):
     description = Column(Text)
     interval_standard = Column(Text)
     interval_severe = Column(Text)
+
+class JobEvent(Base):
+    __tablename__ = 'job_events'
+    
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    job_id = Column(String(36), index=True)
+    vin = Column(String(17), nullable=False, index=True)
+    timestamp = Column(DateTime, default=datetime.datetime.utcnow)
+    level = Column(String(20), default='INFO')  # INFO, WARNING, ERROR, SUCCESS
+    message = Column(Text)

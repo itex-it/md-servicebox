@@ -532,6 +532,17 @@ async def get_vehicle_history(vin: str):
     except Exception as e:
         return JSONResponse(status_code=500, content={"error": str(e)})
 
+@app.get("/api/events/{vin}", dependencies=[Depends(get_api_key)])
+async def get_vehicle_events(vin: str):
+    """
+    Retrieves the chronological job event history for a specific VIN.
+    """
+    try:
+        events = database.get_job_events(vin=vin)
+        return {"vin": vin, "events": events}
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"error": str(e)})
+
 @app.get("/api/stats", dependencies=[Depends(get_api_key)])
 async def get_stats():
     """

@@ -125,7 +125,16 @@ def setup_logging(level_name="INFO"):
         
         # Capture Uvicorn Logs into the same file so the Dashboard sees HTTP traffic
         uvicorn_access = logging.getLogger("uvicorn.access")
+        
+        # Filter out noisy endpoints from Uvicorn logs
+        class EndpointFilter(logging.Filter):
+            def filter(self, record: logging.LogRecord) -> bool:
+                # Mute polling endpoints in logs
+                return not any(val in record.getMessage() for val in ["/api/stats", "/api/logs", "/api/jobs", "/api/history?limit="])
+                
+        uvicorn_access.addFilter(EndpointFilter())
         uvicorn_access.addHandler(file_handler)
+        
         uvicorn_error = logging.getLogger("uvicorn.error")
         uvicorn_error.addHandler(file_handler)
         
