@@ -358,6 +358,7 @@ def get_vehicle_metadata(vin: str):
         "vin": vin,
         "last_updated": cached['last_updated'],
         "status": cached['status'],
+        "energy_type": cached.get('energy_type'),
         "has_cache": True,
         "data_age_days": data_age_days,
         "data_age_category": data_age_category

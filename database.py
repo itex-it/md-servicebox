@@ -152,6 +152,7 @@ def get_latest_vehicle(vin):
             'last_updated': str(vehicle.last_updated) if vehicle.last_updated else None,
             'file_path': vehicle.file_path,
             'status': vehicle.status,
+            'energy_type': vehicle.energy_type,
             'warranty_data': {},
             'lcdv_data': {},
             'recalls_data': {}
