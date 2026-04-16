@@ -148,7 +148,7 @@ class JobManager:
                             # Upload to Paperless if enabled
                             if paperless_client.enabled:
                                 title = f"Wartungsplan {job['vin']}"
-                                tags = ["ServiceBox", "Wartungsplan", job['vin']]
+                                tags = ["ServiceBox", "Wartungsplan"]
                                 
                                 doc_id = paperless_client.upload_document(file_path, title, tags=tags)
                                 if doc_id == "OFFLINE":
@@ -309,7 +309,7 @@ class JobManager:
                             if len(parts) >= 3:
                                 vin = parts[0]
                                 title = f"Wartungsplan {vin}"
-                                tags = ["ServiceBox", "Wartungsplan", vin]
+                                tags = ["ServiceBox", "Wartungsplan"]
                                 
                                 logger.info(f"Syncing offline PDF found in downloads: {filename}")
                                 doc_id = paperless_client.upload_document(file_path, title, tags=tags)
