@@ -91,13 +91,13 @@ class ServiceBoxDownloader:
                         # We iterate and check for 'textbold' class indicating a label
                         for i, cell in enumerate(cells):
                             classes = cell.get('class', [])
-                            if classes and 'textbold' in classes:
-                                key = self._clean_text(cell.get_text()).rstrip(':').strip()
-                                # The value should be in the next cell
-                                if i + 1 < len(cells):
+                            cell_text = self._clean_text(cell.get_text())
+                            if (classes and 'textbold' in classes) or cell_text.endswith(':'):
+                                key = cell_text.rstrip(':').strip()
+                                # The value should be in the next valid cell
+                                if i + 1 < len(cells) and key:
                                     val = self._clean_text(cells[i+1].get_text())
-                                    val = self._clean_text(cells[i+1].get_text())
-                                    if key:
+                                    if val and val != ':':
                                         data['warranty'][key] = val
         except Exception as e:
             logger.error(f"Error extracting warranty: {e}")

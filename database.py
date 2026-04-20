@@ -97,7 +97,8 @@ def save_extraction(vin, file_path, vehicle_data, status='Success'):
         existing = db.query(Vehicle).filter(Vehicle.vin == vin).first()
         if existing:
             # Update
-            existing.file_path = file_path
+            if file_path:
+                existing.file_path = file_path
             
             # Merge logic for vehicle data: Only overwrite if new data isn't empty
             # If the current extraction failed to grab warranty/lcdv (empty string or '{}'), 
